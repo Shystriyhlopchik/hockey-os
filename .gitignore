@@ -1,0 +1,13 @@
+node_modules/
+.angular/
+dist/
+.env
+.env.production
+backups/
+.local/
+.pnpm-store/
+*.tsbuildinfo
+tmp/
+test-results/
+coverage/
+*.log

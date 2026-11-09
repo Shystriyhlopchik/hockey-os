@@ -1,0 +1,15 @@
+**/node_modules
+**/dist
+**/.angular
+**/*.tsbuildinfo
+.git
+.env
+.env.*
+.local
+.pnpm-store
+tmp
+backups
+test-results
+coverage
+**/*.log
+**/*.dump
