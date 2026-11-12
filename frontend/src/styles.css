@@ -73,4 +73,19 @@
 .schedule-change-count{margin-right:auto;color:var(--blue-dark);font-size:11px;font-weight:750}
 @media(max-width:960px){.calendar-edit-row{grid-template-columns:80px minmax(0,1.2fr) minmax(0,1fr) 85px}.calendar-bulk{grid-template-columns:1fr 1fr}.calendar-bulk .btn{grid-column:1/-1;justify-self:start}}
 @media(max-width:640px){.calendar-edit-row{grid-template-columns:80px minmax(0,1fr);padding:15px;gap:14px}.calendar-edit-date{grid-column:1/-1;grid-row:3}.calendar-edit-venue{grid-column:1/-1;grid-row:4}.calendar-edit-teams b{font-size:12px}.calendar-bulk{grid-template-columns:1fr;padding:15px}.calendar-bulk .btn{width:100%}.schedule-change-count{width:100%;margin:0 0 4px}.calendar-modal .modal-actions{flex-wrap:wrap}}
+/* The home league choice controls standings, results and season leaders together. */
+.home-league-switch{display:flex;align-items:center;justify-content:space-between;gap:30px;padding:24px;margin-top:32px;background:#fff;border:1px solid var(--line);border-radius:6px}
+.home-league-switch h2{font-size:25px;margin:6px 0 8px}
+.home-league-switch .eyebrow{margin:0;font-size:8px;color:var(--muted)}
+.home-league-switch p{font-size:11px;color:var(--muted);margin:0;line-height:1.6}
+.home-league-options{display:flex;flex-wrap:wrap;gap:10px;flex:1;max-width:620px;min-width:0}
+.home-league-button{flex:1 1 200px;min-width:0;padding:17px 20px;border:1px solid var(--line);border-radius:5px;background:var(--paper);font-size:12px;line-height:1.5;font-weight:750;color:var(--ink);transition:background .15s,border-color .15s;overflow-wrap:anywhere}
+.home-league-button:hover{border-color:var(--blue);background:#edf4ff}
+.home-league-button.active{border-color:var(--blue-dark);background:var(--navy);color:#fff;box-shadow:inset 0 -3px var(--gold)}
+.home-league-button:focus-visible{outline:2px solid var(--blue);outline-offset:3px}
+.result-list>.empty{font-size:11px;line-height:1.7;padding:30px 20px}
+.leader-cards>.empty{grid-column:1/-1;background:#fff;border:1px solid var(--line);border-radius:5px}
+@media(max-width:960px){.home-league-switch{align-items:flex-start;flex-direction:column;gap:20px}.home-league-options{width:100%;max-width:none}.home-league-button{flex-basis:200px}}
+@media(max-width:640px){.home-league-switch{padding:20px;margin-top:24px;gap:17px}.home-league-switch h2{font-size:23px}.home-league-switch p{font-size:10px}.home-league-button{flex-basis:100%;padding:14px 16px;font-size:12px}}
+.event-time-range{display:block;margin-top:6px;color:var(--muted);font-size:8px;line-height:1.5}
 @media print{.site-header,.topline,.site-footer,.public-filter,.back-link,.period-scores a,.period-scores button,.modal-backdrop,.toast,.alert{display:none!important}body{background:white;color:black}.public-main{padding:0;max-width:none}.content-section{padding-top:10px}.protocol-scoreboard{break-inside:avoid;background:white}.home-columns{grid-template-columns:1fr 1fr}.protocol-rosters{grid-template-columns:1fr 1fr}.timeline-goal,.roster-list>div{break-inside:avoid}.panel{border-color:#ccc}.site-footer{display:none!important}a{color:black}.public-scoreboard .big-score>span{font-size:48px}@page{size:A4;margin:15mm}}

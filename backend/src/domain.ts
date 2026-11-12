@@ -25,6 +25,7 @@ export interface Penalty { id: string; teamId: number; playerId: number | null; 
 export interface GoalieShift { teamId: number; playerId: number | null; from: string; to: string; }
 export interface ShootoutAttempt { teamId: number; playerId: number; goalieId: number; scored: boolean; }
 export interface Protocol {
+  timeBasis?: 'match' | 'period';
   detailLevel: 'full' | 'score_only'; homeRoster: RosterEntry[]; awayRoster: RosterEntry[];
   goals: Goal[]; penalties: Penalty[]; goalieShifts: GoalieShift[]; shootout: ShootoutAttempt[];
   resolution: 'regulation' | 'draw' | 'overtime' | 'shootout' | 'technical';
@@ -42,10 +43,44 @@ export function ageOn(birth: string, date: string): number {
   return d[0] - b[0] - (d[1] < b[1] || (d[1] === b[1] && d[2] < b[2]) ? 1 : 0);
 }
 export function seconds(value: string, limit = 36000): number {
-  ensure(typeof value === 'string' && /^\d{1,3}:\d{2}$/.test(value), 'Время укажите в формате ММ:СС');
+  ensure(typeof value === 'string' && /^\d{1,4}:\d{2}$/.test(value), 'Время укажите в формате ММ:СС');
   const [m,s] = value.split(':').map(Number);
-  ensure(s < 60 && m * 60 + s <= limit, 'Время выходит за пределы периода'); return m * 60 + s;
+  ensure(s < 60, 'Секунды укажите от 00 до 59');
+  ensure(m * 60 + s <= limit, 'Время выходит за пределы периода'); return m * 60 + s;
 }
+export function periodTimeWindow(period:number,rules:Rules):{start:number;end:number} {
+  ensure(Number.isInteger(period)&&period>=1&&period<=rules.periods+20,'Неверный номер периода');
+  const duration=(period<=rules.periods?rules.periodMinutes:rules.overtimeMinutes)*60;
+  const start=period<=rules.periods?(period-1)*duration:rules.periods*rules.periodMinutes*60+(period-rules.periods-1)*duration;
+  return {start,end:start+duration};
+}
+function clock(value:number):string {return `${String(Math.floor(value/60)).padStart(2,'0')}:${String(value%60).padStart(2,'0')}`;}
+
+// Historical JSON has period-relative event times and no timeBasis field.
+// Convert copies for reading; incomplete draft values remain editable.
+export function protocolInMatchTime(p:Protocol,rules:Rules):Protocol {
+  if(p.timeBasis==='match')return {...p};
+  const convert=<T extends {period:number;time:string}>(event:T):T=>{
+    try {
+      const {start,end}=periodTimeWindow(event.period,rules);
+      return {...event,time:clock(start+seconds(event.time,end-start))};
+    }catch(error){if(!(error instanceof DomainError))throw error;return {...event};}
+  };
+  return {...p,timeBasis:'match',goals:p.goals.map(convert),penalties:p.penalties.map(convert)};
+}
+
+function protocolInPeriodTime(p:Protocol,rules:Rules):Protocol {
+  if(p.timeBasis!=='match')return p;
+  const convert=<T extends {period:number;time:string}>(event:T,label:string):T=>{
+    try {
+      const {start,end}=periodTimeWindow(event.period,rules),time=seconds(event.time,Infinity);
+      ensure(time>=start&&time<=end,`Время ${event.time} не соответствует периоду ${event.period}. Допустимо ${clock(start)}–${clock(end)} от начала матча`);
+      return {...event,time:clock(time-start)};
+    }catch(error){if(!(error instanceof DomainError))throw error;throw new DomainError(`${label}: ${error.message}`);}
+  };
+  return {...p,timeBasis:'period',goals:p.goals.map((event,index)=>convert(event,`Гол №${index+1}`)),penalties:p.penalties.map((event,index)=>convert(event,`Удаление №${index+1}`))};
+}
+
 export function validateRules(input: Rules): Rules {
   ensure(input && typeof input === 'object', 'Правила не заполнены');
   const result = {...input};
@@ -80,6 +115,7 @@ export function emptyProtocol(): Protocol {return {detailLevel:'full',homeRoster
 export function validateProtocolShape(p: Protocol): void {
   ensure(p && typeof p === 'object','Протокол не заполнен');
   for(const key of ['homeRoster','awayRoster','goals','penalties','goalieShifts','shootout']) ensure(Array.isArray((p as any)[key]) && (p as any)[key].length <= 500 && (p as any)[key].every((x:unknown)=>x&&typeof x==='object'&&!Array.isArray(x)), `Некорректный раздел ${key}`);
+  ensure(p.timeBasis===undefined||['match','period'].includes(p.timeBasis),'Неизвестный формат времени протокола');
   ensure(['full','score_only'].includes(p.detailLevel),'Неизвестный режим протокола');
   ensure(['regulation','draw','overtime','shootout','technical'].includes(p.resolution),'Неизвестный исход матча');
   for(const text of [p.notes,p.referee,p.technicalReason]) ensure(typeof text==='string' && text.length <= 5000,'Текст протокола слишком длинный');
@@ -87,6 +123,7 @@ export function validateProtocolShape(p: Protocol): void {
 }
 export function resolveProtocol(p: Protocol, match: MatchInput, rules: Rules): Result {
   validateProtocolShape(p);
+  p=protocolInPeriodTime(p,rules);
   const scores = Array.from({length:rules.periods},(_,i)=>({label:String(i+1),home:0,away:0}));
   const allowed = new Map<number,Set<number>>();
   ensure(match.homeTeamId !== match.awayTeamId,'Команда не может играть сама с собой');

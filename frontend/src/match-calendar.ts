@@ -36,3 +36,7 @@ export function upcomingActiveMatches<T extends CalendarMatch>(matches:readonly 
   const active=tournaments.filter(t=>t.status==='active');
   return upcomingMatches(listPublicMatches(matches,active),now,limit);
 }
+
+export function recentTournamentResults<T extends CalendarMatch>(matches:readonly T[],tournamentId:number|undefined,limit=4):T[] {
+  return sortMatches(matches.filter(match=>match.tournamentId===tournamentId&&match.status==='completed'),'desc').slice(0,limit);
+}

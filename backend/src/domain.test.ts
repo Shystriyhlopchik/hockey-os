@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {ageOn,roundRobin,FESTIVAL_RULES,STANDARD_RULES,emptyProtocol,resolveProtocol,calculateStandings,validateRules,validateProtocolShape,Protocol,Rules} from './domain';
+import {ageOn,roundRobin,FESTIVAL_RULES,STANDARD_RULES,emptyProtocol,resolveProtocol,calculateStandings,validateRules,validateProtocolShape,protocolInMatchTime,Protocol,Rules} from './domain';
 const rules:Rules={...FESTIVAL_RULES,minSkaters:3,maxSkaters:20};
 const match={homeTeamId:1,awayTeamId:2,stage:'regular'};
 function protocol():Protocol{const p=emptyProtocol();p.homeRoster=[1,2,3,4].map((id,i)=>({playerId:id,number:id,position:i===0?'G':'F',captain:i===1?'C':'',played:true}));p.awayRoster=p.homeRoster.map(x=>({...x,playerId:x.playerId+10}));return p;}
@@ -26,3 +26,52 @@ test('Незавершённая серия бросков отвергаетс�
 test('Таблица учитывает личные встречи трёх команд',()=>{const teams=[1,2,3].map(id=>({id,name:String(id),color:'',abbreviation:''}));const matches=[[1,2,5,0],[2,3,3,0],[3,1,2,0]].map(([homeTeamId,awayTeamId,homeScore,awayScore])=>({homeTeamId,awayTeamId,homeScore,awayScore,stage:'regular',status:'completed',resolution:'regulation'}));const result=calculateStandings(teams,matches,rules);assert.deepEqual(result.map(x=>x.teamId),[1,3,2]);assert.ok(result.every(x=>x.points===2));});
 test('Неопубликованные матчи не влияют на таблицу',()=>{const teams=[{id:1,name:'А',color:'',abbreviation:''},{id:2,name:'Б',color:'',abbreviation:''}];const result=calculateStandings(teams,[{...match,homeScore:5,awayScore:0,status:'scheduled',resolution:'regulation'}],rules);assert.ok(result.every(x=>x.played===0&&x.points===0));});
 test('Некорректные правила и составные разделы отвергаются',()=>{assert.throws(()=>validateRules({...rules,minSkaters:21,maxSkaters:20}));const p=protocol();(p.goals as any)=[null];assert.throws(()=>validateProtocolShape(p),/раздел/);});
+
+test('Время матча 21:00 во втором и 42:00 в третьем периоде принимается при 3×15 и 3×20',()=>{
+  for(const minutes of [15,20]){
+    const p=protocol();p.timeBasis='match';goal(p,1,2,'21:00');goal(p,1,3,'42:00');
+    const original=structuredClone(p),result=resolveProtocol(p,match,{...rules,periodMinutes:minutes});
+    assert.equal(result.homeScore,2);assert.equal(result.periodScores[1].home,1);assert.equal(result.periodScores[2].home,1);
+    assert.deepEqual(p,original);
+  }
+});
+test('Время матча проверяется по обеим границам периода с указанием проблемного гола',()=>{
+  const p=protocol();p.timeBasis='match';goal(p,1,2,'14:59');
+  for(const time of ['14:59','30:01']){p.goals[0].time=time;assert.throws(()=>resolveProtocol(p,match,rules),/Гол №1:.*15:00–30:00/);}
+  for(const time of ['15:00','30:00']){p.goals[0].time=time;assert.equal(resolveProtocol(p,match,rules).homeScore,1);}
+  p.goals[0].period=3;p.goals[0].time='29:59';assert.throws(()=>resolveProtocol(p,match,rules),/30:00–45:00/);
+  p.goals[0].time='45:01';assert.throws(()=>resolveProtocol(p,match,rules),/30:00–45:00/);
+  p.goals[0].period=2;p.goals[0].time='19:59';assert.throws(()=>resolveProtocol(p,match,{...rules,periodMinutes:20}),/20:00–40:00/);
+  p.goals[0].time='21:60';assert.throws(()=>resolveProtocol(p,match,rules),/Гол №1: Секунды/);
+});
+test('Удаления используют общее время матча и сообщают номер ошибочной записи',()=>{
+  const p=protocol();p.timeBasis='match';goal(p);
+  p.penalties=[{id:'match-penalty',teamId:1,playerId:null,period:2,time:'21:00',minutes:2,code:'Командный штраф',start:'21:00',end:'23:00'}];
+  assert.equal(resolveProtocol(p,match,rules).homeScore,1);
+  p.penalties[0].period=3;p.penalties[0].time='42:00';assert.equal(resolveProtocol(p,match,rules).homeScore,1);
+  p.penalties[0].period=2;assert.throws(()=>resolveProtocol(p,match,rules),/Удаление №1:.*15:00–30:00/);
+});
+test('Общее время овертаймов не удваивается при расчёте интервалов вратаря',()=>{
+  for(const [period,time] of [[4,'61:30'],[5,'66:30']] as const){
+    const p=protocol();p.timeBasis='match';p.resolution='overtime';goal(p,1,period,time);
+    p.goalieShifts=[{teamId:1,playerId:1,from:'00:00',to:time}];
+    assert.equal(resolveProtocol(p,match,{...STANDARD_RULES,minSkaters:3}).homeScore,1);
+    p.goalieShifts[0].to=time.slice(0,3)+'31';assert.throws(()=>resolveProtocol(p,match,{...STANDARD_RULES,minSkaters:3}),/интервал/);
+  }
+});
+test('Старые протоколы переводятся в общее время без изменения сохранённых данных и повторного прибавления',()=>{
+  const p=protocol();goal(p,1,2,'06:00');goal(p,1,3,'12:00');
+  p.penalties=[{id:'legacy-penalty',teamId:1,playerId:null,period:3,time:'12:15',minutes:2,code:'Штраф',start:'42:15',end:'44:15'}];
+  p.goalieShifts=[{teamId:1,playerId:1,from:'00:00',to:'45:00'}];
+  const original=structuredClone(p),converted=protocolInMatchTime(p,rules);
+  assert.equal(converted.timeBasis,'match');assert.deepEqual(converted.goals.map(g=>g.time),['21:00','42:00']);
+  assert.equal(converted.penalties[0].time,'42:15');assert.equal(converted.penalties[0].start,'42:15');assert.deepEqual(converted.goalieShifts,p.goalieShifts);
+  assert.deepEqual(protocolInMatchTime(converted,rules),converted);assert.deepEqual(p,original);
+  assert.deepEqual(resolveProtocol(converted,match,rules),resolveProtocol(p,match,rules));
+});
+test('Незавершённый старый черновик остаётся доступен для исправления',()=>{
+  const p=protocol();goal(p,1,2,'21:00');goal(p,1,3,'не заполнено');
+  const converted=protocolInMatchTime(p,rules);
+  assert.deepEqual(converted.goals.map(g=>g.time),['21:00','не заполнено']);assert.equal(converted.timeBasis,'match');
+  const invalid={...p,timeBasis:'unknown'} as unknown as Protocol;assert.throws(()=>validateProtocolShape(invalid),/формат времени/);
+});

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {listPublicMatches,sortMatches,upcomingMatches,upcomingActiveMatches} from '../src/match-calendar.ts';
+import {listPublicMatches,sortMatches,upcomingMatches,upcomingActiveMatches,recentTournamentResults} from '../src/match-calendar.ts';
 
 const tournaments=[{id:1,seasonId:1,status:'active'},{id:2,seasonId:1,status:'active'},{id:3,seasonId:2,status:'active'}];
 const game=(id,tournamentId,startsAt,status='scheduled')=>({id,tournamentId,startsAt,status});
@@ -53,4 +53,20 @@ test('Draft and finished tournaments never populate an empty upcoming block',()=
   const matches=[game(1,1,'2026-11-14T12:00:00Z'),game(2,2,'2026-11-14T13:00:00Z')];
   assert.deepEqual(upcomingActiveMatches(matches,events,now),[]);
   assert.deepEqual(upcomingActiveMatches(matches,[],now),[]);
+});
+
+test('Home results belong only to the selected league even if another league finished more recently',()=>{
+  const matches=[game(1,1,'2026-11-10T09:00:00Z','completed'),game(2,2,'2026-11-14T15:00:00Z','completed'),game(3,1,'2026-11-12T09:00:00Z','completed'),game(4,1,'2026-11-15T09:00:00Z'),game(5,2,'2026-11-14T12:00:00Z','completed'),game(6,1,'2026-11-16T09:00:00Z','cancelled')];
+  const before=structuredClone(matches);
+  assert.deepEqual(ids(recentTournamentResults(matches,1)),[3,1]);
+  assert.deepEqual(ids(recentTournamentResults(matches,2)),[2,5]);
+  assert.deepEqual(ids(recentTournamentResults(matches,undefined)),[]);
+  assert.deepEqual(ids(recentTournamentResults(matches,99)),[]);
+  assert.deepEqual(matches,before);
+});
+
+test('Home results show the latest four published matches after filtering by league',()=>{
+  const matches=[game(60,2,'2026-11-20T09:00:00Z','completed'),...Array.from({length:6},(_,index)=>game(index+1,1,`2026-11-${String(index+10).padStart(2,'0')}T09:00:00Z`,'completed'))];
+  assert.deepEqual(ids(recentTournamentResults(matches,1)),[6,5,4,3]);
+  assert.deepEqual(ids(recentTournamentResults(matches,1,2)),[6,5]);
 });

@@ -63,8 +63,8 @@ import {Workbook} from 'exceljs';
     for(const [tid,roster] of [[match.homeTeamId,p.homeRoster],[match.awayTeamId,p.awayRoster]]){
       sheet.addRow([]);sheet.addRow([team(tid)]);sheet.addRow(['Номер','Игрок','Амплуа','К / А','Участвовал']);for(const r of roster)sheet.addRow([r.number,identity(r.playerId),r.position,r.captain,r.played?'Да':'Нет']);
     }
-    sheet.addRow([]);sheet.addRow(['ГОЛЫ']);sheet.addRow(['Период','Время','Команда','Автор','Ассистент 1','Ассистент 2','Ситуация']);for(const g of p.goals)sheet.addRow([g.period,g.time,team(g.teamId),identity(g.scorerId),identity(g.assist1Id),identity(g.assist2Id),g.situation]);
-    sheet.addRow([]);sheet.addRow(['УДАЛЕНИЯ']);sheet.addRow(['Период','Время','Команда','Игрок','Минуты','Нарушение']);for(const e of p.penalties)sheet.addRow([e.period,e.time,team(e.teamId),identity(e.playerId),e.minutes,e.code]);
+    sheet.addRow([]);sheet.addRow(['ГОЛЫ']);sheet.addRow(['Период','Время матча','Команда','Автор','Ассистент 1','Ассистент 2','Ситуация']);for(const g of p.goals)sheet.addRow([g.period,g.time,team(g.teamId),identity(g.scorerId),identity(g.assist1Id),identity(g.assist2Id),g.situation]);
+    sheet.addRow([]);sheet.addRow(['УДАЛЕНИЯ']);sheet.addRow(['Период','Время матча','Команда','Игрок','Минуты','Нарушение']);for(const e of p.penalties)sheet.addRow([e.period,e.time,team(e.teamId),identity(e.playerId),e.minutes,e.code]);
     const back=wb.addWorksheet('Дополнения',{pageSetup:{paperSize:9,fitToPage:true,fitToWidth:1,fitToHeight:0}});back.columns=[{width:26},{width:38},{width:30},{width:30},{width:25}];
     back.addRow(['ВРАТАРИ']);back.addRow(['Команда','Вратарь','Начало','Окончание']);for(const g of p.goalieShifts)back.addRow([team(g.teamId),g.playerId?identity(g.playerId):'Пустые ворота',g.from,g.to]);
     back.addRow([]);back.addRow(['СЕРИЯ БРОСКОВ']);for(const s of p.shootout)back.addRow([team(s.teamId),identity(s.playerId),identity(s.goalieId),s.scored?'Гол':'Нет гола']);

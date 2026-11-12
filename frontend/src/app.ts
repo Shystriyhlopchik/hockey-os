@@ -3,7 +3,7 @@ import {CommonModule} from '@angular/common';
 import {FormsModule} from '@angular/forms';
 import {trackPageView} from './analytics';
 import {createScheduleRows,scheduleGroups,nearestScheduleGroup,scheduleRowsInGroup,changedScheduleRows,scheduleChanges,applyScheduleBulk} from './schedule-editor';
-import {listPublicMatches,sortMatches,upcomingActiveMatches} from './match-calendar';
+import {listPublicMatches,sortMatches,upcomingActiveMatches,recentTournamentResults} from './match-calendar';
 import {Router,RouterLink,RouterOutlet,NavigationEnd} from '@angular/router';
 
 @Component({selector:'app-root',standalone:true,imports:[CommonModule,FormsModule,RouterLink,RouterOutlet],templateUrl:'./app.html'})
@@ -39,14 +39,16 @@ export class AppComponent implements OnInit {
   get matchFeed():any[]{return !this.isOffice&&['home','calendar'].includes(this.route)?this.publicMatches:this.matches;}
   get filteredMatches(){return sortMatches(this.matchFeed.filter(m=>(this.statusFilter==='all'||m.status===this.statusFilter)&&(!this.teamFilter||[m.homeTeamId,m.awayTeamId].includes(this.teamFilter))&&`${this.teamName(m.homeTeamId)} ${this.teamName(m.awayTeamId)} ${m.venue} ${this.tournamentName(m.tournamentId)}`.toLowerCase().includes(this.search.toLowerCase())));}
   get upcoming(){return this.isOffice?sortMatches(this.matches.filter(m=>m.status==='scheduled'&&m.startsAt)).slice(0,4):upcomingActiveMatches(this.data?.matches||[],this.data?.tournaments||[]);}
-  get results(){return sortMatches(this.matchFeed.filter(m=>m.status==='completed'),'desc').slice(0,4);}
+  get results():any[]{return recentTournamentResults(this.current?.matches||[],this.tournament?.id);}
   get calendarTeams(){const ids=new Set(this.publicMatches.flatMap(m=>[m.homeTeamId,m.awayTeamId]));return (this.data?.teams||[]).filter((t:any)=>ids.has(t.id));}
   get tournamentTeams(){return (this.current?.teams||[]).filter((t:any)=>this.tournament?.teamIds.includes(t.id));}
   get filteredTeams(){return (this.isOffice&&this.canGlobal?this.work?.teams||[]:this.tournamentTeams).filter((t:any)=>t.name.toLowerCase().includes(this.search.toLowerCase()));}
   nextNumber(teamId:number){const used=new Set((this.work?.registrations||[]).filter((r:any)=>r.teamId===teamId&&r.tournamentId===this.tournament?.id).map((r:any)=>r.number));for(let i=1;i<=99;i++)if(!used.has(i))return i;return 99;}
   get team(){return (this.current?.teams||[]).find((t:any)=>t.id===this.entityId);}
   get player(){return (this.current?.players||[]).find((p:any)=>p.id===this.entityId);}
-  get stats(){return (this.current?.stats||[]).filter((s:any)=>s.tournamentId===this.tournament?.id&&(!this.teamFilter||s.teamId===this.teamFilter)&&(this.positionFilter==='all'||s.position===this.positionFilter)&&s.name.toLowerCase().includes(this.search.toLowerCase()));}
+  get tournamentStats(){return (this.current?.stats||[]).filter((s:any)=>s.tournamentId===this.tournament?.id);}
+  get leaders(){return this.tournamentStats.slice(0,4);}
+  get stats(){return this.tournamentStats.filter((s:any)=>(!this.teamFilter||s.teamId===this.teamFilter)&&(this.positionFilter==='all'||s.position===this.positionFilter)&&s.name.toLowerCase().includes(this.search.toLowerCase()));}
   get players(){const regs=this.current?.registrations||[];return (this.current?.players||[]).filter((p:any)=>regs.some((r:any)=>r.playerId===p.id&&r.tournamentId===this.tournament?.id&&(!this.teamFilter||r.teamId===this.teamFilter))&&p.name.toLowerCase().includes(this.search.toLowerCase())&&(this.positionFilter==='all'||p.position===this.positionFilter));}
   get totalGoals(){return this.matches.filter(m=>m.status==='completed').reduce((s,m)=>s+(m.homeScore||0)+(m.awayScore||0),0);}
   get completed(){return this.matches.filter(m=>m.status==='completed').length;}
@@ -124,7 +126,7 @@ export class AppComponent implements OnInit {
   async loadPublicMatch(){await this.run(async()=>this.detail=await this.request(`matches/${this.entityId}`),'');}
   async loadProtocol(){await this.run(async()=>{
     this.detail=await this.request(`workspace/matches/${this.entityId}`);const d=this.detail;this.selectTournament(d.tournament.id);this.draftVersion=d.draftVersion;this.protocolVersion=d.match.protocolVersion;
-    this.protocol=structuredClone(d.draft||d.protocol||{detailLevel:'full',homeRoster:[],awayRoster:[],goals:[],penalties:[],goalieShifts:[],shootout:[],resolution:'regulation',manualHomeScore:null,manualAwayScore:null,technicalReason:'',notes:'',referee:'',spectators:null});
+    this.protocol=structuredClone(d.draft||d.protocol||{timeBasis:'match',detailLevel:'full',homeRoster:[],awayRoster:[],goals:[],penalties:[],goalieShifts:[],shootout:[],resolution:'regulation',manualHomeScore:null,manualAwayScore:null,technicalReason:'',notes:'',referee:'',spectators:null});
     if(!d.draft&&!d.protocol)for(const candidate of d.candidates)this.toggleRoster(candidate.teamId,candidate,true);
     this.dirty=false;this.revisionReason='';this.protocolTab='rosters';
   },'');}
@@ -135,6 +137,14 @@ export class AppComponent implements OnInit {
   toggleRoster(teamId:number,c:any,checked:boolean){const list=this.roster(teamId);if(checked&&!list.some(x=>x.playerId===c.playerId))list.push({playerId:c.playerId,number:c.number,position:c.player.position,captain:c.captain,played:c.player.position!=='G'||!list.some(x=>x.position==='G'&&x.played)});if(!checked){const index=list.findIndex(x=>x.playerId===c.playerId);if(index>=0)list.splice(index,1);}this.dirty=true;}
   rosterOptions(teamId:number){return this.roster(teamId).map(x=>({...x,name:this.playerName(x.playerId)}));}
   get protocolTeams(){return this.detail?[this.detail.match.homeTeamId,this.detail.match.awayTeamId]:[];}
+  matchTimeRange(period:number){
+    const rules=this.detail?.tournament.rules;
+    if(!rules||!Number.isInteger(period)||period<1||period>rules.periods+20)return 'Выберите период';
+    const duration=period<=rules.periods?rules.periodMinutes:rules.overtimeMinutes;
+    const start=period<=rules.periods?(period-1)*duration:rules.periods*rules.periodMinutes+(period-rules.periods-1)*duration;
+    return `${String(start).padStart(2,'0')}:00–${String(start+duration).padStart(2,'0')}:00`;
+  }
+  get protocolTimeHint(){const rules=this.detail?.tournament.rules;return 'Время от начала матча, ММ:СС. '+(rules?Array.from({length:rules.periods},(_,index)=>`${index+1}-й период: ${this.matchTimeRange(index+1)}`).join('; ')+'. ':'')+'В овертайме общий отсчёт продолжается.';}
   addGoal(){const teamId=this.detail.match.homeTeamId;this.protocol.goals.push({id:crypto.randomUUID(),teamId,period:1,time:'00:00',scorerId:this.roster(teamId).find(x=>x.position!=='G')?.playerId||null,assist1Id:null,assist2Id:null,situation:'EV'});this.dirty=true;}
   addPenalty(){this.protocol.penalties.push({id:crypto.randomUUID(),teamId:this.detail.match.homeTeamId,playerId:null,servedById:null,period:1,time:'00:00',minutes:2,code:'Подножка',start:'',end:''});this.dirty=true;}
   addGoalie(){const teamId=this.detail.match.homeTeamId;this.protocol.goalieShifts.push({teamId,playerId:this.roster(teamId).find(x=>x.position==='G')?.playerId||null,from:'00:00',to:String(this.detail.tournament.rules.periods*this.detail.tournament.rules.periodMinutes)+':00'});this.dirty=true;}

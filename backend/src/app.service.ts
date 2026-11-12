@@ -2,7 +2,7 @@ import {Injectable,BadRequestException,ForbiddenException,NotFoundException,Conf
 import {DataSource,EntityManager,In} from 'typeorm';
 import {Community,Season,User,Assignment,Team,Player,Tournament,Registration,Series,Match,Revision,Audit,News} from './entities';
 import {Actor,hashPassword} from './security';
-import {Rules,Protocol,Role,FESTIVAL_RULES,STANDARD_RULES,DomainError,ageOn,calculateStandings,emptyProtocol,resolveProtocol,roundRobin,validateProtocolShape,validateRules,seconds} from './domain';
+import {Rules,Protocol,Role,FESTIVAL_RULES,STANDARD_RULES,DomainError,ageOn,calculateStandings,emptyProtocol,resolveProtocol,roundRobin,validateProtocolShape,validateRules,seconds,protocolInMatchTime} from './domain';
 
 const name=(p:Player)=>`${p.lastName} ${p.firstName}${p.middleName?' '+p.middleName:''}`;
 const text=(v:unknown,min=1,max=200)=>{if(typeof v!=='string'||v.trim().length<min||v.length>max)throw new BadRequestException(`Текст должен содержать от ${min} до ${max} символов`);return v.trim();};
@@ -200,8 +200,8 @@ const today=()=>new Date().toISOString().slice(0,10);
   async matchDetail(id:number,actor?:Actor){
     const match=await this.entity(Match,id);const t=await this.entity(Tournament,match.tournamentId);if(actor)await this.scope(actor,t.id);else if(t.status==='draft')throw new NotFoundException();
     const revisions=await this.db.manager.find(Revision,{where:{matchId:id},order:{version:'DESC'}});const latest=revisions.find(x=>x.version===match.protocolVersion);
-    const payload:any={match,tournament:t,protocol:latest?.protocol||null,identities:latest?Object.fromEntries(Object.entries(latest.identities).map(([id,p])=>[id,actor?p:{name:p.name,position:p.position}])):{},history:actor?revisions.map(r=>({version:r.version,actorId:r.actorId,reason:r.reason,createdAt:r.createdAt})):[]};
-    if(actor){const raw=await this.db.getRepository(Match).createQueryBuilder('m').addSelect('m.draft').where('m.id=:id',{id}).getOneOrFail();payload.draft=raw.draft;payload.draftVersion=raw.draftVersion;const regs=await this.db.manager.findBy(Registration,{tournamentId:t.id,active:true});const pids=regs.filter(r=>[match.homeTeamId,match.awayTeamId].includes(r.teamId)).map(r=>r.playerId);const players=await this.db.manager.findBy(Player,{id:In(pids.length?pids:[0])});payload.candidates=regs.filter(r=>pids.includes(r.playerId)).map(r=>({...r,player:{...players.find(p=>p.id===r.playerId),name:name(players.find(p=>p.id===r.playerId)!)}}));}
+    const payload:any={match,tournament:t,protocol:latest?protocolInMatchTime(latest.protocol,t.rules):null,identities:latest?Object.fromEntries(Object.entries(latest.identities).map(([id,p])=>[id,actor?p:{name:p.name,position:p.position}])):{},history:actor?revisions.map(r=>({version:r.version,actorId:r.actorId,reason:r.reason,createdAt:r.createdAt})):[]};
+    if(actor){const raw=await this.db.getRepository(Match).createQueryBuilder('m').addSelect('m.draft').where('m.id=:id',{id}).getOneOrFail();payload.draft=raw.draft?protocolInMatchTime(raw.draft,t.rules):null;payload.draftVersion=raw.draftVersion;const regs=await this.db.manager.findBy(Registration,{tournamentId:t.id,active:true});const pids=regs.filter(r=>[match.homeTeamId,match.awayTeamId].includes(r.teamId)).map(r=>r.playerId);const players=await this.db.manager.findBy(Player,{id:In(pids.length?pids:[0])});payload.candidates=regs.filter(r=>pids.includes(r.playerId)).map(r=>({...r,player:{...players.find(p=>p.id===r.playerId),name:name(players.find(p=>p.id===r.playerId)!)}}));}
     return payload;
   }
   async saveProtocol(actor:Actor,id:number,input:any,publish:boolean){
