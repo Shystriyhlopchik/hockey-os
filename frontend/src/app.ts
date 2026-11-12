@@ -1,6 +1,9 @@
 import {Component,HostListener,OnInit} from '@angular/core';
 import {CommonModule} from '@angular/common';
 import {FormsModule} from '@angular/forms';
+import {trackPageView} from './analytics';
+import {createScheduleRows,scheduleGroups,nearestScheduleGroup,scheduleRowsInGroup,changedScheduleRows,scheduleChanges,applyScheduleBulk} from './schedule-editor';
+import {listPublicMatches,sortMatches,upcomingActiveMatches} from './match-calendar';
 import {Router,RouterLink,RouterOutlet,NavigationEnd} from '@angular/router';
 
 @Component({selector:'app-root',standalone:true,imports:[CommonModule,FormsModule,RouterLink,RouterOutlet],templateUrl:'./app.html'})
@@ -16,10 +19,10 @@ export class AppComponent implements OnInit {
   actions:any={publish_protocol:'Опубликован протокол',correct_protocol:'Исправлен протокол',save_draft:'Сохранён черновик',register:'Игрок заявлен',transfer:'Переход игрока',generate_schedule:'Создан календарь',launch:'Турнир запущен',start_playoff:'Запущен плей-офф',reschedule:'Перенос матча',create:'Создана запись',update:'Изменена запись',remove:'Удалён из заявки',login:'Вход в кабинет',demo_seed:'Демонстрационное наполнение'};
   ruleFields=[['periods','Периодов'],['periodMinutes','Минут в периоде'],['pointsWin','Очков за победу'],['pointsDraw','Очков за ничью'],['pointsLoss','За поражение'],['pointsOvertimeLoss','За поражение в ОТ/БП'],['rounds','Кругов регулярки'],['overtimeMinutes','Минут в овертайме'],['shootoutAttempts','Бросков в серии'],['quarterWins','Побед в ¼ финала'],['semiWins','Побед в ½ финала'],['finalWins','Побед в финале'],['minAge','Минимальный возраст'],['maxRoster','Игроков в сезонной заявке'],['minSkaters','Минимум полевых на матч'],['maxSkaters','Максимум полевых'],['minGoalies','Минимум вратарей'],['maxGoalies','Максимум вратарей'],['schoolLimit','Квота спортшкольников'],['formerMasterLimit','Квота бывших мастеров'],['playoffSkaterGames','Игр для допуска полевого в ПО'],['playoffGoalieGames','Игр для допуска вратаря в ПО'],['transferLimit','Переходов за сезон']];
   nav=[{path:'/',label:'Главная'},{path:'/tournaments',label:'Турниры'},{path:'/calendar',label:'Календарь'},{path:'/teams',label:'Команды'},{path:'/players',label:'Статистика'},{path:'/news',label:'Новости'}];
-  constructor(public router:Router){router.events.subscribe(async e=>{if(e instanceof NavigationEnd){this.readRoute();if(this.section==='protocol'&&this.actor)await this.loadProtocol();else if(this.route==='matches')await this.loadPublicMatch();else if(this.section==='audit'&&this.actor)await this.loadAudit();}});}
+  constructor(public router:Router){router.events.subscribe(async e=>{if(e instanceof NavigationEnd){trackPageView(e.urlAfterRedirects);this.readRoute();if(this.section==='protocol'&&this.actor)await this.loadProtocol();else if(this.route==='matches')await this.loadPublicMatch();else if(this.section==='audit'&&this.actor)await this.loadAudit();}});}
   async ngOnInit(){this.readRoute();await this.refresh();if(this.section==='protocol'&&this.actor)await this.loadProtocol();if(this.route==='matches')await this.loadPublicMatch();}
-  @HostListener('window:beforeunload',['$event']) unload(e:BeforeUnloadEvent){if(this.dirty){e.preventDefault();e.returnValue='';}}
-  readRoute(){const bits=this.router.url.split('?')[0].split('/').filter(Boolean);this.route=bits[0]||'home';this.section=this.route==='office'?(bits[1]||'overview'):'';this.entityId=Number(bits[this.route==='office'?2:1]||0);if(this.route==='tournaments'&&this.entityId)this.selectTournament(this.entityId);this.search='';this.statusFilter='all';this.error='';this.detail=null;}
+  @HostListener('window:beforeunload',['$event']) unload(e:BeforeUnloadEvent){if(this.hasUnsavedChanges){e.preventDefault();e.returnValue='';}}
+  readRoute(){const bits=this.router.url.split('?')[0].split('/').filter(Boolean);this.route=bits[0]||'home';this.section=this.route==='office'?(bits[1]||'overview'):'';this.entityId=Number(bits[this.route==='office'?2:1]||0);if(this.route==='tournaments'&&this.entityId)this.selectTournament(this.entityId);this.search='';this.statusFilter='all';this.teamFilter=0;this.error='';this.detail=null;}
   get isOffice(){return this.route==='office';}
   get current(){return this.isOffice&&this.work?this.work:this.data;}
   get tournaments(){return (this.current?.tournaments||[]).filter((t:any)=>this.isOffice||!this.seasonId||t.seasonId===this.seasonId);}
@@ -32,9 +35,12 @@ export class AppComponent implements OnInit {
   get canGlobal(){return this.actor&&['superuser','community_admin'].includes(this.actor.role);}
   get standings(){return this.current?.standings[this.tournament?.id]||[];}
   get matches():any[]{return (this.current?.matches||[]).filter((m:any)=>m.tournamentId===this.tournament?.id);}
-  get filteredMatches(){return this.matches.filter(m=>(this.statusFilter==='all'||m.status===this.statusFilter)&&(!this.teamFilter||[m.homeTeamId,m.awayTeamId].includes(this.teamFilter))&&`${this.teamName(m.homeTeamId)} ${this.teamName(m.awayTeamId)} ${m.venue}`.toLowerCase().includes(this.search.toLowerCase())).sort((a,b)=>(a.startsAt?+new Date(a.startsAt):Infinity)-(b.startsAt?+new Date(b.startsAt):Infinity)||a.id-b.id);}
-  get upcoming(){return this.matches.filter(m=>m.status==='scheduled'&&m.startsAt).slice(0,4);}
-  get results(){return this.matches.filter(m=>m.status==='completed').slice(-4).reverse();}
+  get publicMatches():any[]{return listPublicMatches(this.data?.matches||[],this.data?.tournaments||[],this.seasonId);}
+  get matchFeed():any[]{return !this.isOffice&&['home','calendar'].includes(this.route)?this.publicMatches:this.matches;}
+  get filteredMatches(){return sortMatches(this.matchFeed.filter(m=>(this.statusFilter==='all'||m.status===this.statusFilter)&&(!this.teamFilter||[m.homeTeamId,m.awayTeamId].includes(this.teamFilter))&&`${this.teamName(m.homeTeamId)} ${this.teamName(m.awayTeamId)} ${m.venue} ${this.tournamentName(m.tournamentId)}`.toLowerCase().includes(this.search.toLowerCase())));}
+  get upcoming(){return this.isOffice?sortMatches(this.matches.filter(m=>m.status==='scheduled'&&m.startsAt)).slice(0,4):upcomingActiveMatches(this.data?.matches||[],this.data?.tournaments||[]);}
+  get results(){return sortMatches(this.matchFeed.filter(m=>m.status==='completed'),'desc').slice(0,4);}
+  get calendarTeams(){const ids=new Set(this.publicMatches.flatMap(m=>[m.homeTeamId,m.awayTeamId]));return (this.data?.teams||[]).filter((t:any)=>ids.has(t.id));}
   get tournamentTeams(){return (this.current?.teams||[]).filter((t:any)=>this.tournament?.teamIds.includes(t.id));}
   get filteredTeams(){return (this.isOffice&&this.canGlobal?this.work?.teams||[]:this.tournamentTeams).filter((t:any)=>t.name.toLowerCase().includes(this.search.toLowerCase()));}
   nextNumber(teamId:number){const used=new Set((this.work?.registrations||[]).filter((r:any)=>r.teamId===teamId&&r.tournamentId===this.tournament?.id).map((r:any)=>r.number));for(let i=1;i<=99;i++)if(!used.has(i))return i;return 99;}
@@ -49,8 +55,9 @@ export class AppComponent implements OnInit {
   async request(path:string,method='GET',body?:any):Promise<any>{const response=await fetch('/api/'+path,{method,credentials:'same-origin',headers:body?{'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined});const data=await response.json().catch(()=>({}));if(!response.ok)throw new Error(data.message||'Не удалось выполнить запрос');return data;}
   async refresh(){try{this.data=await this.request('public');try{this.actor=await this.request('auth/me');this.work=await this.request('workspace');}catch{this.actor=null;this.work=null;}if(this.tournaments.length&&!this.tournaments.some((t:any)=>t.id===this.tournamentId))this.tournamentId=this.tournaments[0].id;}catch(e:any){this.error=e.message;}finally{this.loading=false;}}
   selectTournament(id:number){this.tournamentId=Number(id);localStorage.setItem('hockey_tournament',String(id));this.teamFilter=0;}
-  teamById(id:number){return (this.data?.teams||[]).find((t:any)=>t.id===id)||{name:'Участник не определён',abbreviation:'—',color:'#657d84'};}
-  teamName(id:number){return this.teamById(id).name;}
+  teamById(id:number|null){return (this.data?.teams||[]).find((t:any)=>t.id===id)||{name:'Участник не определён',abbreviation:'—',color:'#657d84'};}
+  tournamentName(id:number){return this.data?.tournaments?.find((t:any)=>t.id===id)?.name||'Турнир';}
+  teamName(id:number|null){return this.teamById(id).name;}
   playerName(id:number){return this.detail?.identities?.[id]?.name||(this.current?.players||[]).find((p:any)=>p.id===id)?.name||'—';}
   playerRegistration(id:number){return (this.current?.registrations||[]).find((r:any)=>r.playerId===id&&r.tournamentId===this.tournament?.id);}
   teamRoster(id:number){return (this.current?.registrations||[]).filter((r:any)=>r.teamId===id&&r.tournamentId===this.tournament?.id).map((r:any)=>({...r,player:(this.current?.players||[]).find((p:any)=>p.id===r.playerId)}));}
@@ -63,13 +70,30 @@ export class AppComponent implements OnInit {
   async run(task:()=>Promise<any>,message='Изменения сохранены'){if(this.busy)return;this.busy=true;this.error='';try{await task();this.notice=message;setTimeout(()=>this.notice='',4500);}catch(e:any){this.error=e.message;}finally{this.busy=false;}}
   async logout(){await this.run(async()=>{await this.request('auth/logout','POST',{});this.actor=null;this.work=null;this.router.navigateByUrl('/');},'Вы вышли из кабинета');}
   login(){this.modal='login';this.form={username:'',password:''};this.error='';}
-  open(kind:string,item?:any){this.error='';this.modal=kind;const t=this.tournament;
+  get calendarGroups(){return scheduleGroups(this.form.rows||[]);}
+  get calendarRows(){return scheduleRowsInGroup(this.form.rows||[],this.form.groupKey);}
+  get calendarChangeCount(){return changedScheduleRows(this.form.rows||[]).length;}
+  get hasUnsavedChanges(){return this.dirty||(this.modal==='calendar'&&this.calendarChangeCount>0);}
+  hasTournamentMatches(id:number){return (this.work?.matches||[]).some((match:any)=>match.tournamentId===id);}
+  hasEditableSchedule(id=this.tournament?.id){const tournament=this.work?.tournaments.find((t:any)=>t.id===id);return !!tournament&&['draft','active'].includes(tournament.status)&&(this.work?.matches||[]).some((match:any)=>match.tournamentId===id&&match.status==='scheduled');}
+  async editCalendar(item?:any){await this.run(async()=>{
+    const id=item?.id||this.tournament?.id;if(!id)throw new Error('Выберите турнир');
+    this.work=await this.request('workspace');
+    const tournament=this.work.tournaments.find((t:any)=>t.id===id);
+    if(!tournament||!this.hasEditableSchedule(id))throw new Error('В турнире нет матчей, доступных для изменения расписания');
+    const rows=createScheduleRows(sortMatches(this.work.matches.filter((match:any)=>match.tournamentId===id)));
+    this.form={tournamentId:id,tournamentName:tournament.name,rows,groupKey:nearestScheduleGroup(rows),bulkDate:'',bulkVenue:''};
+    this.modal='calendar';
+  },'');}
+  applyCalendarBulk(){try{applyScheduleBulk(this.form.rows,this.form.groupKey,this.form.bulkDate,this.form.bulkVenue);this.error='';}catch(error:any){this.error=error.message;}}
+  closeModal(){if(this.busy)return;if(this.modal==='calendar'&&this.calendarChangeCount&&!confirm('Есть несохранённые изменения календаря. Закрыть без сохранения?'))return;this.modal='';this.error='';}
+  open(kind:string,item?:any){if(kind==='calendar'){void this.editCalendar(item);return;}this.error='';this.modal=kind;const t=this.tournament;
     if(kind==='team')this.form=item?{...item,tournamentId:t?.id}:{name:'',city:'Чебоксары',abbreviation:'',color:'#1f5970',description:'',tournamentId:t?.status==='draft'?t.id:null};
     else if(kind==='player')this.form=item?{...item,tournamentId:t?.id}:{firstName:'',lastName:'',middleName:'',birthDate:'',position:'F',qualification:'amateur',insured:false,medicallyCleared:false,tournamentId:t?.id,teamId:this.teamFilter||this.tournamentTeams[0]?.id,number:1,registerAfter:true};
     else if(kind==='registration')this.form={tournamentId:t.id,teamId:this.teamFilter||this.tournamentTeams[0]?.id,playerId:item?.id||this.work.players[0]?.id,number:1,captain:''};
     else if(kind==='tournament'){const rules=item?.rules||this.data.ruleProfiles?.festival||this.data.tournaments[0]?.rules;this.form=item?structuredClone(item):{name:'Новый турнир',slug:'tournament-'+Date.now(),division:'18+',seasonId:this.data.seasons[0]?.id,description:'',teamIds:[],rules:structuredClone(rules)};}
     else if(kind==='user')this.form=item?{...item,password:'',tournamentIds:this.work.assignments.filter((a:any)=>a.userId===item.id).map((a:any)=>a.tournamentId)}:{username:'',displayName:'',password:'',role:'secretary',active:true,tournamentIds:[]};
-    else if(kind==='schedule')this.form={id:item?.id||t.id,startsAt:item?.tournamentId?this.dateTimeInput(item.startsAt):'2026-11-14T12:00',venue:item?.venue||'Новое Поколение',slotMinutes:item?.slotMinutes||90,isMatch:!!item?.tournamentId};
+    else if(kind==='schedule')this.form={id:item?.id||t.id,startsAt:item?.tournamentId?this.dateTimeInput(item.startsAt):'2026-11-14T12:00',venue:item?.venue||'Новое Поколение',slotMinutes:item?.slotMinutes||90,isMatch:!!item?.tournamentId,expected:item?.tournamentId?{round:item.round,startsAt:item.startsAt,venue:item.venue,slotMinutes:item.slotMinutes}:undefined};
     else if(kind==='playoff')this.form={id:t.id,size:Math.min(8,t.teamIds.length)};
     else if(kind==='settings')this.form={...this.work.community};
     else if(kind==='news')this.form=item?{...item}:{title:'',body:'',category:'Сообщество',published:true};
@@ -82,6 +106,7 @@ export class AppComponent implements OnInit {
     const f=this.form,k=this.modal;
     if(k==='login'){this.actor=await this.request('auth/login','POST',f);await this.refresh();this.modal='';await this.router.navigateByUrl('/office');return;}
     if(k==='schedule'){const startsAt=f.startsAt?f.startsAt+':00+03:00':null;await this.request(f.isMatch?`workspace/matches/${f.id}`:`workspace/tournaments/${f.id}/schedule`,f.isMatch?'PATCH':'POST',{...f,startsAt});}
+    else if(k==='calendar'){const changes=scheduleChanges(f.rows);if(!changes.length)throw new Error('Расписание не изменено');await this.request(`workspace/tournaments/${f.tournamentId}/schedule`,'PATCH',{matches:changes});}
     else if(k==='playoff')await this.request(`workspace/tournaments/${f.id}/playoff`,'POST',{size:f.size});
     else if(k==='registration')await this.request('workspace/registrations','POST',f);
     else if(k==='settings')await this.request('workspace/community','PATCH',f);

@@ -147,13 +147,55 @@ const today=()=>new Date().toISOString().slice(0,10);
     for(const match of matches)if(!match.startsAt||!match.venue)throw new BadRequestException('Назначьте даты и площадки всех матчей');
     t.status='active';t.version++;await m.save(t);await this.audit(actor,'launch','tournament',id,id,{},m);return t;
   });}
-  async checkSlot(m:EntityManager,date:Date,slot:number,venue:string,home:number|null,away:number|null,exclude?:number){
-    const all=await m.find(Match,{where:{status:'scheduled'}});
+  scheduleSnapshot(match:Match){return {round:match.round,startsAt:match.startsAt?.toISOString()??null,venue:match.venue,slotMinutes:match.slotMinutes};}
+  assertScheduleUnchanged(match:Match,expected:any){
+    if(!expected||!(expected.startsAt===null||typeof expected.startsAt==='string')||typeof expected.venue!=='string'||!Number.isInteger(expected.slotMinutes))throw new BadRequestException('Передайте исходное расписание матча');
+    if(expected.round!==undefined)number(expected.round,1,1000);
+    const date=expected.startsAt===null?null:new Date(expected.startsAt);
+    if(date&&Number.isNaN(+date))throw new BadRequestException('Некорректная исходная дата матча');
+    if((date?.getTime()??null)!==(match.startsAt?.getTime()??null)||expected.venue!==match.venue||expected.slotMinutes!==match.slotMinutes||(expected.round!==undefined&&expected.round!==match.round))throw new ConflictException(`Расписание матча №${match.id} изменено в другом окне. Откройте календарь заново`);
+  }
+  async updateSchedule(actor:Actor,id:number,input:any){
+    await this.scope(actor,id,true);
+    if(!Array.isArray(input?.matches)||!input.matches.length||input.matches.length>500)throw new BadRequestException('Передайте от 1 до 500 изменений матчей');
+    const ids=input.matches.map((row:any)=>number(row?.id));
+    if(new Set(ids).size!==ids.length)throw new BadRequestException('Матч указан несколько раз');
+    return this.db.transaction(async m=>{
+      await m.findOneOrFail(Community,{where:{singleton:true},lock:{mode:'pessimistic_write'}});
+      const tournament=await m.findOneOrFail(Tournament,{where:{id},lock:{mode:'pessimistic_write'}});
+      if(!['draft','active'].includes(tournament.status))throw new ConflictException('Календарь завершённого турнира нельзя менять');
+      const current=await m.getRepository(Match).createQueryBuilder('match').setLock('pessimistic_write').where('match.tournamentId=:id',{id}).andWhere('match.id IN (:...ids)',{ids}).orderBy('match.id','ASC').getMany();
+      if(current.length!==ids.length)throw new BadRequestException('Все матчи должны принадлежать выбранному турниру');
+      const before=new Map(current.map(match=>[match.id,this.scheduleSnapshot(match)]));
+      const changes=input.matches.map((row:any)=>{
+        const match=current.find(item=>item.id===row.id)!;
+        if(match.status!=='scheduled')throw new ConflictException(`Матч №${match.id} уже завершён или отменён. Его расписание менять нельзя`);
+        const round=row.round===undefined?match.round:number(row.round,1,1000);
+        if(row.round!==undefined&&!Number.isInteger(row.expected?.round))throw new BadRequestException('Передайте исходный тур матча');
+        this.assertScheduleUnchanged(match,row.expected);
+        if(round!==match.round&&(match.stage!=='regular'||match.seriesId!==null))throw new ConflictException('Матчи плей-офф нельзя переносить в другую серию');
+        if(!(row.startsAt===null||typeof row.startsAt==='string'&&row.startsAt.length>0))throw new BadRequestException('Укажите дату матча или null');
+        const startsAt=row.startsAt===null?null:new Date(row.startsAt);
+        if(startsAt&&Number.isNaN(+startsAt))throw new BadRequestException('Некорректная дата матча');
+        return Object.assign(match,{round,startsAt,venue:text(row.venue),slotMinutes:number(row.slotMinutes,60,300)});
+      }) as Match[];
+      const changedIds=new Set(ids);
+      const planned=[...(await m.find(Match,{where:{status:'scheduled'}})).filter(match=>!changedIds.has(match.id)),...changes];
+      for(const match of changes)if(match.startsAt)await this.checkSlot(m,match.startsAt,match.slotMinutes,match.venue,match.homeTeamId,match.awayTeamId,match.id,planned);
+      await m.save(Match,changes);
+      for(const match of changes)await this.audit(actor,'reschedule','match',match.id,id,{before:before.get(match.id),after:this.scheduleSnapshot(match)},m);
+      return {count:changes.length,matches:changes};
+    });
+  }
+  async checkSlot(m:EntityManager,date:Date,slot:number,venue:string,home:number|null,away:number|null,exclude?:number,planned?:Match[]){
+    const all=planned??await m.find(Match,{where:{status:'scheduled'}});
     const conflict=all.find(x=>x.id!==exclude&&x.startsAt&&+date<+new Date(x.startsAt)+x.slotMinutes*60000&&+date+slot*60000>+new Date(x.startsAt)&&(x.venue.toLowerCase()===venue.toLowerCase()||[x.homeTeamId,x.awayTeamId].some(id=>id!==null&&[home,away].includes(id))));
     if(conflict)throw new ConflictException(`Пересечение с матчем №${conflict.id}: площадка или команда занята`);
   }
-  async scheduleMatch(actor:Actor,id:number,input:any){const match=await this.entity(Match,id);await this.scope(actor,match.tournamentId,true);
-    return this.db.transaction(async m=>{await m.findOneOrFail(Community,{where:{singleton:true},lock:{mode:'pessimistic_write'}});const current=await this.entity(Match,id,m);if(current.status!=='scheduled')throw new ConflictException('Изменять можно только будущий матч');const date=input.startsAt?new Date(input.startsAt):null;if(date&&Number.isNaN(+date))throw new BadRequestException('Некорректная дата');const slot=number(input.slotMinutes||90,60,300),venue=text(input.venue);if(date)await this.checkSlot(m,date,slot,venue,current.homeTeamId,current.awayTeamId,id);Object.assign(current,{startsAt:date,slotMinutes:slot,venue});await m.save(current);await this.audit(actor,'reschedule','match',id,current.tournamentId,{},m);return current;});
+  async scheduleMatch(actor:Actor,id:number,input:any){
+    const match=await this.entity(Match,id);
+    const result=await this.updateSchedule(actor,match.tournamentId,{matches:[{id,round:input?.round,startsAt:input?.startsAt||null,venue:input?.venue,slotMinutes:input?.slotMinutes??90,expected:input?.expected??(input?.round===undefined?this.scheduleSnapshot(match):undefined)}]});
+    return result.matches[0];
   }
   async matchDetail(id:number,actor?:Actor){
     const match=await this.entity(Match,id);const t=await this.entity(Tournament,match.tournamentId);if(actor)await this.scope(actor,t.id);else if(t.status==='draft')throw new NotFoundException();

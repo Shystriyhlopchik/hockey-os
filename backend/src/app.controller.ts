@@ -31,6 +31,7 @@ import {Workbook} from 'exceljs';
   @Post('workspace/tournaments') createTournament(@Body() b:any,@Req() r:AuthRequest){return this.app.tournament(r.actor,b);}
   @Patch('workspace/tournaments/:id') tournament(@Param('id',ParseIntPipe) id:number,@Body() b:any,@Req() r:AuthRequest){return this.app.tournament(r.actor,b,id);}
   @Post('workspace/tournaments/:id/schedule') schedule(@Param('id',ParseIntPipe) id:number,@Body() b:any,@Req() r:AuthRequest){return this.app.generateSchedule(r.actor,id,b);}
+  @Patch('workspace/tournaments/:id/schedule') updateSchedule(@Param('id',ParseIntPipe) id:number,@Body() b:any,@Req() r:AuthRequest){return this.app.updateSchedule(r.actor,id,b);}
   @Post('workspace/tournaments/:id/launch') launch(@Param('id',ParseIntPipe) id:number,@Req() r:AuthRequest){return this.app.launch(r.actor,id);}
   @Post('workspace/tournaments/:id/playoff') playoff(@Param('id',ParseIntPipe) id:number,@Body() b:any,@Req() r:AuthRequest){return this.app.startPlayoff(r.actor,id,b.size);}
   @Post('workspace/seasons') season(@Body() b:any,@Req() r:AuthRequest){return this.app.season(r.actor,b);}
