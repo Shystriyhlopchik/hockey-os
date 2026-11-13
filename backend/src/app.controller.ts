@@ -37,8 +37,11 @@ import {Workbook} from 'exceljs';
   @Post('workspace/seasons') season(@Body() b:any,@Req() r:AuthRequest){return this.app.season(r.actor,b);}
   @Post('workspace/teams') createTeam(@Body() b:any,@Req() r:AuthRequest){return this.app.team(r.actor,b);}
   @Patch('workspace/teams/:id') team(@Param('id',ParseIntPipe) id:number,@Body() b:any,@Req() r:AuthRequest){return this.app.team(r.actor,b,id);}
+  @Post('workspace/players/check-name') @HttpCode(200) checkPlayerName(@Body() b:any,@Req() r:AuthRequest){return this.app.checkPlayerName(r.actor,b);}
   @Post('workspace/players') createPlayer(@Body() b:any,@Req() r:AuthRequest){return this.app.player(r.actor,b);}
   @Patch('workspace/players/:id') player(@Param('id',ParseIntPipe) id:number,@Body() b:any,@Req() r:AuthRequest){return this.app.player(r.actor,b,id);}
+  @Get('workspace/players/:id/deletion') checkPlayerDeletion(@Param('id',ParseIntPipe) id:number,@Req() r:AuthRequest){return this.app.checkPlayerDeletion(r.actor,id);}
+  @Delete('workspace/players/:id') removePlayer(@Param('id',ParseIntPipe) id:number,@Body() b:any,@Req() r:AuthRequest){return this.app.removePlayer(r.actor,id,b);}
   @Post('workspace/registrations') registration(@Body() b:any,@Req() r:AuthRequest){return this.app.registration(r.actor,b);}
   @Delete('workspace/registrations/:id') remove(@Param('id',ParseIntPipe) id:number,@Req() r:AuthRequest){return this.app.removeRegistration(r.actor,id);}
   @Post('workspace/users') createUser(@Body() b:any,@Req() r:AuthRequest){return this.app.users(r.actor,b);}
@@ -49,8 +52,10 @@ import {Workbook} from 'exceljs';
   @Patch('workspace/tournaments/:id/staff') assignStaff(@Param('id',ParseIntPipe) id:number,@Body() b:any,@Req() r:AuthRequest){return this.app.staff(r.actor,id,b.secretaryIds);}
   @Post('workspace/news') createNews(@Body() b:any,@Req() r:AuthRequest){return this.app.saveNews(r.actor,b);}
   @Patch('workspace/news/:id') news(@Param('id',ParseIntPipe) id:number,@Body() b:any,@Req() r:AuthRequest){return this.app.saveNews(r.actor,b,id);}
-  @Public() @Get('matches/:id/export.xlsx') async export(@Param('id',ParseIntPipe) id:number,@Res() res:Response){
-    const data=await this.app.matchDetail(id);const match=data.match as Match;
+  @Public() @Get('matches/:id/export.xlsx') async export(@Param('id',ParseIntPipe) id:number,@Res() res:Response){return this.exportWorkbook(id,res);}
+  @Get('workspace/matches/:id/export.xlsx') async exportStaff(@Param('id',ParseIntPipe) id:number,@Res() res:Response,@Req() r:AuthRequest){return this.exportWorkbook(id,res,r.actor);}
+  private async exportWorkbook(id:number,res:Response,actor?:AuthRequest['actor']){
+    const data=await this.app.matchDetail(id,actor);const match=data.match as Match;
     if(!data.protocol)throw new UnauthorizedException('Официальный протокол ещё не опубликован');
     const teams=await this.app.db.manager.find(Team);const team=(id:number|null)=>teams.find(t=>t.id===id)?.name||'—';
     const wb=new Workbook();wb.creator='Хоккей города';const sheet=wb.addWorksheet('Протокол',{pageSetup:{paperSize:9,orientation:'landscape',fitToPage:true,fitToWidth:1,fitToHeight:0}});
@@ -63,12 +68,32 @@ import {Workbook} from 'exceljs';
     for(const [tid,roster] of [[match.homeTeamId,p.homeRoster],[match.awayTeamId,p.awayRoster]]){
       sheet.addRow([]);sheet.addRow([team(tid)]);sheet.addRow(['Номер','Игрок','Амплуа','К / А','Участвовал']);for(const r of roster)sheet.addRow([r.number,identity(r.playerId),r.position,r.captain,r.played?'Да':'Нет']);
     }
-    sheet.addRow([]);sheet.addRow(['ГОЛЫ']);sheet.addRow(['Период','Время матча','Команда','Автор','Ассистент 1','Ассистент 2','Ситуация']);for(const g of p.goals)sheet.addRow([g.period,g.time,team(g.teamId),identity(g.scorerId),identity(g.assist1Id),identity(g.assist2Id),g.situation]);
-    sheet.addRow([]);sheet.addRow(['УДАЛЕНИЯ']);sheet.addRow(['Период','Время матча','Команда','Игрок','Минуты','Нарушение']);for(const e of p.penalties)sheet.addRow([e.period,e.time,team(e.teamId),identity(e.playerId),e.minutes,e.code]);
+    sheet.addRow([]);sheet.addRow(['ГОЛЫ']);sheet.getColumn(8).width=32;sheet.getColumn(9).width=32;
+    sheet.addRow(['Период','Время матча','Команда','Автор','Ассистент 1','Ассистент 2','Ситуация','На льду · А','На льду · Б']);for(const g of p.goals)sheet.addRow([g.period,g.time,team(g.teamId),identity(g.scorerId),identity(g.assist1Id),identity(g.assist2Id),g.situation,(g.homeOnIce||[]).map(identity).join(', '),(g.awayOnIce||[]).map(identity).join(', ')]);
+    sheet.addRow([]);sheet.addRow(['УДАЛЕНИЯ']);sheet.addRow(['Период','Время матча','Команда','Игрок','Минуты','Нарушение','Отбывал','Начало','Окончание']);for(const e of p.penalties)sheet.addRow([e.period,e.time,team(e.teamId),identity(e.playerId),e.kind==='penalty_shot'?'ШБ':e.minutes,e.code,identity(e.servedById),e.start||'',e.end||'']);
     const back=wb.addWorksheet('Дополнения',{pageSetup:{paperSize:9,fitToPage:true,fitToWidth:1,fitToHeight:0}});back.columns=[{width:26},{width:38},{width:30},{width:30},{width:25}];
     back.addRow(['ВРАТАРИ']);back.addRow(['Команда','Вратарь','Начало','Окончание']);for(const g of p.goalieShifts)back.addRow([team(g.teamId),g.playerId?identity(g.playerId):'Пустые ворота',g.from,g.to]);
     back.addRow([]);back.addRow(['СЕРИЯ БРОСКОВ']);for(const s of p.shootout)back.addRow([team(s.teamId),identity(s.playerId),identity(s.goalieId),s.scored?'Гол':'Нет гола']);
     back.addRow([]);back.addRow(['Главный судья',p.referee]);back.addRow(['Зрители',p.spectators]);back.addRow(['Замечания',p.notes]);if(p.resolution==='technical')back.addRow(['Техническое решение',p.technicalReason]);
+    if(p.sheet){
+      const s=p.sheet;back.addRow([]);back.addRow(['СВЕДЕНИЯ С БУМАЖНОГО БЛАНКА']);
+      for(const [label,value] of [['Номер на бланке',s.matchNumber],['Город',s.city],['Фактическое начало · МСК',s.startedAt],['Фактическое окончание · МСК',s.endedAt]])back.addRow([label,value]);
+      for(const [key,tid] of [['homeStaff',match.homeTeamId],['awayStaff',match.awayTeamId]]){
+        back.addRow([]);back.addRow(['ПРЕДСТАВИТЕЛИ КОМАНДЫ',team(tid as number)]);
+        for(const [field,label] of [['headCoach','Главный тренер'],['coach','Тренер'],['manager','Начальник команды'],['representative','Представитель команды']])back.addRow([label,s[String(key)]?.[field]||'']);
+      }
+      back.addRow([]);back.addRow(['ТАЙМ-АУТЫ']);back.addRow(['Команда','Период','Время матча']);for(const t of s.timeouts||[])back.addRow([team(t.teamId),t.period,t.time]);
+      back.addRow([]);back.addRow(['НЕРЕАЛИЗОВАННЫЕ ШТРАФНЫЕ БРОСКИ']);back.addRow(['Команда','Период','Время матча','Исполнитель','Вратарь']);for(const shot of s.missedShots||[])back.addRow([team(shot.teamId),shot.period,shot.time,identity(shot.playerId),identity(shot.goalieId)]);
+      back.addRow([]);back.addRow(['СУДЕЙСКАЯ БРИГАДА']);
+      for(const [field,label] of [['referee2','Второй главный судья'],['linesman1','Первый линейный судья'],['linesman2','Второй линейный судья'],['timekeeper','Судья времени матча'],['announcer','Информатор'],['penaltyHome','При оштрафованных игроках · А'],['penaltyAway','При оштрафованных игроках · Б'],['scorekeeperHome','Судья-регистратор · А'],['scorekeeperAway','Судья-регистратор · Б'],['goalJudge1','Судья за воротами · 1'],['goalJudge2','Судья за воротами · 2'],['reserveReferee','Резервный главный судья'],['reserveLinesman','Резервный линейный судья'],['videoJudge','Судья видеоповторов'],['inspector','Инспектор'],['secretary','Секретарь'],['chiefReferee','Главный судья соревнований']])back.addRow([label,s.officials?.[field]||'']);
+      back.addRow([]);back.addRow(['ЗАМЕЧАНИЯ НА ОБОРОТЕ']);
+      for(const [field,label] of [['disciplinaryNotes','Дисциплинарные нарушения и пункты регламента'],['matchNotes','Замечания главного судьи и инспектора'],['protestNotes','Уведомления о подаче протеста']])back.addRow([label,s[field]||'']);
+      if(actor)back.addRow(['Уведомления врачей о травмах · служебные',s.injuryNotes||'']);
+    }
+    sheet.addRow([]);sheet.addRow(['ШТРАФНОЕ ВРЕМЯ ПО ПЕРИОДАМ']);sheet.addRow(['Период','Хозяева, мин','Гости, мин']);
+    const penaltyPeriods=new Set<number>([...Array.from({length:data.tournament.rules.periods},(_,i)=>i+1),...p.penalties.map((pen:any)=>pen.period)]);
+    for(const period of [...penaltyPeriods].sort((a,b)=>a-b))sheet.addRow([period,p.penalties.filter((pen:any)=>pen.period===period&&pen.teamId===match.homeTeamId).reduce((n:number,pen:any)=>n+pen.minutes,0),p.penalties.filter((pen:any)=>pen.period===period&&pen.teamId===match.awayTeamId).reduce((n:number,pen:any)=>n+pen.minutes,0)]);
+
     for(const s of [sheet,back]){s.views=[{state:'frozen',ySplit:4}];s.eachRow(row=>{row.alignment={vertical:'middle',wrapText:true};row.height=Math.max(23,row.height||0);if(row.number%2===0)row.eachCell(c=>c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFF0F4F5'}});});}
     res.setHeader('Content-Type','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');res.setHeader('Content-Disposition',`attachment; filename="hockey-match-${id}-v${match.protocolVersion}.xlsx"`);await wb.xlsx.write(res);res.end();
   }

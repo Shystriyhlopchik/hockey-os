@@ -75,3 +75,36 @@ test('Незавершённый старый черновик остаётся 
   assert.deepEqual(converted.goals.map(g=>g.time),['21:00','не заполнено']);assert.equal(converted.timeBasis,'match');
   const invalid={...p,timeBasis:'unknown'} as unknown as Protocol;assert.throws(()=>validateProtocolShape(invalid),/формат времени/);
 });
+
+function officialSheet():NonNullable<Protocol['sheet']>{return {matchNumber:'Б-27',city:'Чебоксары',startedAt:'2026-11-13T23:15',endedAt:'2026-11-14T01:05',homeStaff:{headCoach:'Тренер А',coach:'',manager:'',representative:''},awayStaff:{headCoach:'Тренер Б',coach:'',manager:'',representative:''},officials:{secretary:'Секретарь'},timeouts:[],missedShots:[],disciplinaryNotes:'',matchNotes:'',injuryNotes:'Служебное уведомление',protestNotes:''};}
+test('Дополнительный бланк сохраняет исходный протокол, ночное время и две команды на льду',()=>{
+  const p=protocol();goal(p);p.sheet=officialSheet();p.goals[0].homeOnIce=[1,2,3,4];p.goals[0].awayOnIce=[11,12,13,14];p.goals[0].situation='PP2';
+  const original=structuredClone(p);assert.equal(resolveProtocol(p,match,rules).homeScore,1);assert.deepEqual(p,original);
+});
+test('Состав на льду не принимает чужого, не участвовавшего или повторяющегося игрока',()=>{
+  const p=protocol();goal(p);p.goals[0].homeOnIce=[12];assert.throws(()=>resolveProtocol(p,match,rules),/на льду/);
+  p.goals[0].homeOnIce=[2,2];assert.throws(()=>resolveProtocol(p,match,rules),/шести разных/);
+  p.goals[0].homeOnIce=[1];p.homeRoster[0].played=false;assert.throws(()=>resolveProtocol(p,match,rules),/не участвовал/);
+});
+test('Тайм-ауты и незабитые ШБ используют общее время, не меняют результат и не повторяются',()=>{
+  const p=protocol();goal(p);p.sheet=officialSheet();p.sheet.timeouts=[{teamId:1,period:2,time:'21:00'}];
+  p.sheet.missedShots=[{id:'missed-shot',teamId:2,playerId:12,goalieId:1,period:3,time:'42:00'}];
+  assert.equal(resolveProtocol(p,match,rules).homeScore,1);
+  p.sheet.timeouts.push({teamId:1,period:3,time:'42:00'});assert.throws(()=>resolveProtocol(p,match,rules),/один тайм-аут/);p.sheet.timeouts.pop();
+  p.sheet.missedShots[0].period=2;assert.throws(()=>resolveProtocol(p,match,rules),/не соответствует/);p.sheet.missedShots[0].period=3;
+  p.sheet.missedShots[0].goalieId=2;assert.throws(()=>resolveProtocol(p,match,rules),/вратаря соперника/);
+});
+test('Дата фактического окончания не может быть раньше начала или несуществующей',()=>{
+  const p=protocol();goal(p);p.sheet=officialSheet();p.sheet.endedAt='2026-11-13T22:00';assert.throws(()=>resolveProtocol(p,match,rules),/раньше/);
+  p.sheet.endedAt='2026-02-30T22:00';assert.throws(()=>resolveProtocol(p,match,rules),/Некорректная дата/);
+});
+test('Назначенный ШБ без штрафных минут допустим, произвольный нулевой штраф запрещён',()=>{
+  const p=protocol();goal(p);p.penalties=[{id:'penalty-shot-award',teamId:1,playerId:2,period:1,time:'01:00',minutes:0,kind:'penalty_shot',code:'ПОДН'}];
+  assert.equal(resolveProtocol(p,match,rules).homeScore,1);delete p.penalties[0].kind;assert.throws(()=>resolveProtocol(p,match,rules),/длительность/);
+});
+test('Забитый штрафной бросок не имеет ассистентов; неверные дополнительные данные отклоняются',()=>{
+  const p=protocol();goal(p);p.goals[0].situation='PS';assert.throws(()=>resolveProtocol(p,match,rules),/нет голевых передач/);
+  p.goals[0].assist1Id=null;p.goals[0].assist2Id=null;assert.equal(resolveProtocol(p,match,rules).homeScore,1);
+  p.sheet=officialSheet();p.sheet.officials.secretary='x'.repeat(201);assert.throws(()=>validateProtocolShape(p),/Слишком длинное имя/);
+  p.sheet=officialSheet();(p.sheet.timeouts as any)=[null];assert.throws(()=>validateProtocolShape(p),/дополнительный раздел/);
+});

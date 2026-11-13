@@ -1,6 +1,6 @@
 {
   "name": "@hockey-os/frontend", "version": "0.1.0", "private": true,
-  "scripts": {"start": "ng serve --host 127.0.0.1 --port 4300", "build": "ng build", "test": "node --experimental-strip-types --test tests/match-calendar.test.mjs tests/schedule-editor.test.mjs"},
+  "scripts": {"start": "ng serve --host 127.0.0.1 --port 4300", "build": "ng build", "test": "node --experimental-strip-types --test tests/match-calendar.test.mjs tests/schedule-editor.test.mjs tests/protocol-sheet.test.mjs"},
   "dependencies": {
     "@angular/common": "^19.2.0", "@angular/compiler": "^19.2.0", "@angular/core": "^19.2.0",
     "@angular/forms": "^19.2.0", "@angular/platform-browser": "^19.2.0", "@angular/router": "^19.2.0",

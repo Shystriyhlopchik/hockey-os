@@ -20,8 +20,8 @@ export const FESTIVAL_RULES: Rules = {
 export const STANDARD_RULES: Rules = {...FESTIVAL_RULES, profile: 'standard', periodMinutes: 20, allowDraw: false,
   overtimeMinutes: 5, quarterWins: 4, semiWins: 4, finalWins: 4, noChecking: false, schoolLimit: 30, formerMasterLimit: 30};
 export interface RosterEntry { playerId: number; number: number; position: Position; captain: '' | 'C' | 'A'; played: boolean; }
-export interface Goal { id: string; teamId: number; period: number; time: string; scorerId: number; assist1Id: number | null; assist2Id: number | null; situation: 'EV' | 'PP' | 'SH' | 'EN' | 'PS'; }
-export interface Penalty { id: string; teamId: number; playerId: number | null; servedById?: number | null; period: number; time: string; minutes: number; code: string; start?: string; end?: string; }
+export interface Goal { id: string; teamId: number; period: number; time: string; scorerId: number; assist1Id: number | null; assist2Id: number | null; situation: 'EV' | 'PP' | 'PP2' | 'SH' | 'SH2' | 'EN' | 'PS'; homeOnIce?:number[]; awayOnIce?:number[]; }
+export interface Penalty { id: string; teamId: number; playerId: number | null; servedById?: number | null; kind?: 'minutes' | 'penalty_shot'; period: number; time: string; minutes: number; code: string; start?: string; end?: string; }
 export interface GoalieShift { teamId: number; playerId: number | null; from: string; to: string; }
 export interface ShootoutAttempt { teamId: number; playerId: number; goalieId: number; scored: boolean; }
 export interface Protocol {
@@ -30,8 +30,70 @@ export interface Protocol {
   goals: Goal[]; penalties: Penalty[]; goalieShifts: GoalieShift[]; shootout: ShootoutAttempt[];
   resolution: 'regulation' | 'draw' | 'overtime' | 'shootout' | 'technical';
   manualHomeScore: number | null; manualAwayScore: number | null;
-  technicalReason: string; notes: string; referee: string; spectators: number | null;
+  technicalReason: string; notes: string; referee: string; spectators: number | null; sheet?:OfficialSheet;
 }
+
+// Optional sheet fields keep all previously published JSON protocols readable.
+export interface TeamStaff { headCoach:string; coach:string; manager:string; representative:string; }
+export interface OfficialSheet {
+  matchNumber:string; city:string; startedAt:string; endedAt:string;
+  homeStaff:TeamStaff; awayStaff:TeamStaff; officials:Record<string,string>;
+  timeouts:{teamId:number;period:number;time:string}[];
+  missedShots:{id:string;teamId:number;playerId:number;goalieId:number;period:number;time:string}[];
+  disciplinaryNotes:string; matchNotes:string; injuryNotes:string; protestNotes:string;
+}
+const officialKeys=['referee2','linesman1','linesman2','timekeeper','announcer','penaltyHome','penaltyAway','scorekeeperHome','scorekeeperAway','goalJudge1','goalJudge2','reserveReferee','reserveLinesman','videoJudge','inspector','secretary','chiefReferee'];
+function validateSheetShape(sheet:OfficialSheet):void {
+  const object=(v:unknown)=>v&&typeof v==='object'&&!Array.isArray(v);
+  const text=(v:unknown,max=200)=>typeof v==='string'&&v.length<=max;
+  ensure(object(sheet),'Некорректный бланк протокола');
+  for(const key of ['matchNumber','city','startedAt','endedAt'] as const)ensure(text(sheet[key]),'Проверьте сведения о матче');
+  for(const staff of [sheet.homeStaff,sheet.awayStaff]){
+    ensure(object(staff),'Проверьте представителей команд');
+    for(const key of ['headCoach','coach','manager','representative'] as const)ensure(text(staff[key]),'Слишком длинное имя представителя команды');
+  }
+  ensure(object(sheet.officials),'Проверьте судейскую бригаду');
+  ensure(Object.keys(sheet.officials).every(key=>officialKeys.includes(key)),'Неизвестная должность в судейской бригаде');
+  for(const value of Object.values(sheet.officials))ensure(text(value),'Слишком длинное имя судьи');
+  for(const key of ['disciplinaryNotes','matchNotes','injuryNotes','protestNotes'] as const)ensure(text(sheet[key],5000),'Замечания не должны превышать 5000 символов');
+  for(const key of ['timeouts','missedShots'] as const)ensure(Array.isArray(sheet[key])&&sheet[key].length<=100&&sheet[key].every(object),'Некорректный дополнительный раздел протокола');
+}
+function validateSheet(p:Protocol,match:MatchInput,rules:Rules,allowed:Map<number,Set<number>>):void {
+  for(const goal of p.goals)for(const [teamId,list] of [[match.homeTeamId,goal.homeOnIce],[match.awayTeamId,goal.awayOnIce]] as const){
+    if(list===undefined)continue;
+    ensure(Array.isArray(list)&&list.length<=6&&new Set(list).size===list.length,'На льду у команды может быть не более шести разных игроков');
+    const roster=teamId===match.homeTeamId?p.homeRoster:p.awayRoster;
+    ensure(list.every(id=>allowed.get(teamId)?.has(id)&&roster.some(r=>r.playerId===id&&r.played)),'Игрок на льду отсутствует в составе или не участвовал');
+  }
+  if(!p.sheet)return;
+  const s=p.sheet;
+  const actual=(value:string)=>{
+    if(value==='')return null;
+    ensure(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value),'Начало и окончание матча укажите датой и временем (МСК)');
+    const date=new Date(value+'+03:00');
+    ensure(Number.isFinite(+date)&&new Date(+date+3*3600000).toISOString().slice(0,16)===value,'Некорректная дата фактического времени матча');return +date;
+  };
+  const start=actual(s.startedAt),end=actual(s.endedAt);
+  ensure(start===null||end===null||end>=start,'Окончание матча раньше его начала');
+  const timed=(e:{teamId:number;period:number;time:string})=>{
+    ensure(allowed.has(e.teamId),'Неизвестная команда в дополнительном разделе');
+    const window=periodTimeWindow(e.period,rules),time=seconds(e.time,Infinity);
+    // Additional sheet events always use elapsed match time, including legacy protocols.
+    ensure(time>=window.start&&time<=window.end,`Время ${e.time} не соответствует периоду ${e.period}`);
+    ensure(e.period<=rules.periods||['overtime','shootout'].includes(p.resolution),'Тайм-аут или штрафной бросок в ОТ требует соответствующего исхода');
+  };
+  for(const teamId of [match.homeTeamId,match.awayTeamId])ensure(s.timeouts.filter(t=>t.teamId===teamId).length<=1,'Команда может взять один тайм-аут за матч');
+  for(const timeout of s.timeouts)timed(timeout);
+  const ids=new Set([...p.goals,...p.penalties].map(e=>e.id));
+  for(const shot of s.missedShots){
+    ensure(typeof shot.id==='string'&&shot.id.length>0&&shot.id.length<=80&&!ids.has(shot.id),'Идентификатор штрафного броска повторяется');ids.add(shot.id);timed(shot);
+    const own=shot.teamId===match.homeTeamId?p.homeRoster:p.awayRoster,other=shot.teamId===match.homeTeamId?p.awayRoster:p.homeRoster;
+    ensure(own.some(r=>r.playerId===shot.playerId&&r.played),'Исполнитель штрафного броска не участвовал в матче');
+    ensure(other.some(r=>r.playerId===shot.goalieId&&r.position==='G'&&r.played),'Укажите участвовавшего вратаря соперника для штрафного броска');
+  }
+  if(p.resolution==='technical')ensure(!s.missedShots.length&&!s.timeouts.length,'Технический результат не содержит игровых событий');
+}
+
 export interface Result { homeScore: number; awayScore: number; periodScores: {home: number; away: number; label: string}[]; resolution: Protocol['resolution']; winnerId: number | null; }
 export interface MatchInput { homeTeamId: number; awayTeamId: number; stage: string; }
 export interface TableMatch extends MatchInput { homeScore: number | null; awayScore: number | null; resolution: string | null; status: string; }
@@ -115,6 +177,8 @@ export function emptyProtocol(): Protocol {return {detailLevel:'full',homeRoster
 export function validateProtocolShape(p: Protocol): void {
   ensure(p && typeof p === 'object','Протокол не заполнен');
   for(const key of ['homeRoster','awayRoster','goals','penalties','goalieShifts','shootout']) ensure(Array.isArray((p as any)[key]) && (p as any)[key].length <= 500 && (p as any)[key].every((x:unknown)=>x&&typeof x==='object'&&!Array.isArray(x)), `Некорректный раздел ${key}`);
+  if(p.sheet!==undefined)validateSheetShape(p.sheet);
+  for(const goal of p.goals)for(const list of [goal.homeOnIce,goal.awayOnIce])if(list!==undefined)ensure(Array.isArray(list)&&list.length<=6&&list.every(id=>Number.isInteger(id)&&id>0),'Некорректный состав игроков на льду');
   ensure(p.timeBasis===undefined||['match','period'].includes(p.timeBasis),'Неизвестный формат времени протокола');
   ensure(['full','score_only'].includes(p.detailLevel),'Неизвестный режим протокола');
   ensure(['regulation','draw','overtime','shootout','technical'].includes(p.resolution),'Неизвестный исход матча');
@@ -144,6 +208,7 @@ export function resolveProtocol(p: Protocol, match: MatchInput, rules: Rules): R
   ensure(new Set(allIds).size===allIds.length,'Игрок не может быть в составах обеих команд');
   const member=(team:number,id:number|null)=>id!==null&&allowed.get(team)?.has(id);
   const played=(team:number,id:number)=> (team===match.homeTeamId?p.homeRoster:p.awayRoster).some(x=>x.playerId===id&&x.played);
+  validateSheet(p,match,rules,allowed);
   const eventIds = [...p.goals,...p.penalties].map(x=>x.id);
   ensure(eventIds.every(id=>typeof id==='string'&&id.length>0&&id.length<=80) && new Set(eventIds).size===eventIds.length,'Идентификаторы событий повторяются');
   if(p.resolution==='technical') {
@@ -157,7 +222,8 @@ export function resolveProtocol(p: Protocol, match: MatchInput, rules: Rules): R
     ensure(participants.every(x=>member(g.teamId,x)&&played(g.teamId,x)),'Ассистент отсутствует в составе или не участвовал');
     ensure(new Set(participants).size===participants.length,'Автор и ассистенты гола должны быть разными игроками');
     ensure(g.assist2Id===null||g.assist1Id!==null,'Укажите первого ассистента перед вторым');
-    ensure(['EV','PP','SH','EN','PS'].includes(g.situation),'Неизвестная игровая ситуация');
+    if(g.situation==='PS')ensure(g.assist1Id===null&&g.assist2Id===null,'У штрафного броска нет голевых передач');
+    ensure(['EV','PP','PP2','SH','SH2','EN','PS'].includes(g.situation),'Неизвестная игровая ситуация');
     ensure(Number.isInteger(g.period)&&g.period>=1&&g.period<=rules.periods+20,'Неверный номер периода');
     seconds(g.time,(g.period>rules.periods?rules.overtimeMinutes:rules.periodMinutes)*60);
     while(scores.length<g.period) scores.push({label:`ОТ${scores.length-rules.periods+1}`,home:0,away:0});
@@ -167,11 +233,13 @@ export function resolveProtocol(p: Protocol, match: MatchInput, rules: Rules): R
     ensure(allowed.has(e.teamId),'Штраф назначен неизвестной команде');
     ensure(e.playerId===null||member(e.teamId,e.playerId)&&played(e.teamId,e.playerId),'Оштрафованный игрок не участвовал в матче');
     ensure(e.servedById==null||member(e.teamId,e.servedById),'Отбывающий штраф отсутствует в составе');
-    ensure([2,4,5,10,20,25].includes(e.minutes),'Выберите допустимую длительность штрафа');
+    ensure(e.kind===undefined||['minutes','penalty_shot'].includes(e.kind),'Неизвестный вид штрафа');
+    ensure(e.kind==='penalty_shot'?e.minutes===0:[2,4,5,10,20,25].includes(e.minutes),'Выберите допустимую длительность штрафа');
     ensure(typeof e.code==='string'&&e.code.trim().length>0&&e.code.length<=100,'Укажите нарушение');
     ensure(Number.isInteger(e.period)&&e.period>=1&&e.period<=rules.periods+20,'Неверный период штрафа');
     seconds(e.time,(e.period>rules.periods?rules.overtimeMinutes:rules.periodMinutes)*60);
     if(e.start) seconds(e.start); if(e.end) seconds(e.end);
+    if(e.start&&e.end)ensure(seconds(e.end)>=seconds(e.start),'Окончание штрафа раньше начала');
   }
   const lastPeriod=Math.max(rules.periods,...p.goals.map(g=>g.period));
   const actualLength=rules.periods*rules.periodMinutes*60+(p.resolution==='shootout'?rules.overtimeMinutes*60:lastPeriod>rules.periods?(lastPeriod-rules.periods-1)*rules.overtimeMinutes*60+Math.max(0,...p.goals.filter(g=>g.period===lastPeriod).map(g=>seconds(g.time))):0);

@@ -2,6 +2,8 @@ import {Injectable,BadRequestException,ForbiddenException,NotFoundException,Conf
 import {DataSource,EntityManager,In} from 'typeorm';
 import {Community,Season,User,Assignment,Team,Player,Tournament,Registration,Series,Match,Revision,Audit,News} from './entities';
 import {Actor,hashPassword} from './security';
+import {createHash} from 'node:crypto';
+import {protocolPlayerIds,playerProtocolNeedles} from './player-references';
 import {Rules,Protocol,Role,FESTIVAL_RULES,STANDARD_RULES,DomainError,ageOn,calculateStandings,emptyProtocol,resolveProtocol,roundRobin,validateProtocolShape,validateRules,seconds,protocolInMatchTime} from './domain';
 
 const name=(p:Player)=>`${p.lastName} ${p.firstName}${p.middleName?' '+p.middleName:''}`;
@@ -87,15 +89,85 @@ const today=()=>new Date().toISOString().slice(0,10);
     if(!id&&input.tournamentId){const t=await this.entity(Tournament,number(input.tournamentId));if(t.status!=='draft')throw new ConflictException('Новые команды добавляются до запуска турнира');t.teamIds=[...t.teamIds,team.id];await this.db.manager.save(t);}
     await this.audit(actor,id?'update':'create','team',team.id,input.tournamentId||null);return team;
   }
+  playerNames(input:any){
+    const part=(value:unknown,min=1,max=200)=>text(typeof value==='string'?value.normalize('NFKC').replace(/\s+/gu,' ').trim():value,min,max);
+    return {lastName:part(input.lastName),firstName:part(input.firstName),middleName:part(input.middleName??'',0,100)};
+  }
+  async findPlayerNames(m:EntityManager,names:{lastName:string;firstName:string;middleName:string},id=0){
+    const values=[names.lastName,names.firstName,names.middleName,id];
+    const matches=await m.query(`SELECT id,"lastName","firstName","middleName" FROM players
+      WHERE hockey_player_name_key("lastName","firstName","middleName")=hockey_player_name_key($1,$2,$3) AND id<>$4 ORDER BY id LIMIT 20`,values);
+    const unchanged=id?!!(await m.query(`SELECT 1 FROM players WHERE id=$4 AND hockey_player_name_key("lastName","firstName","middleName")=hockey_player_name_key($1,$2,$3)`,values)).length:false;
+    return {matches:matches.map((p:Player)=>({id:p.id,name:name(p)})),unchanged};
+  }
+  async checkPlayerName(actor:Actor,input:any){
+    if(input.tournamentId)await this.scope(actor,number(input.tournamentId));else this.global(actor);
+    return this.findPlayerNames(this.db.manager,this.playerNames(input),input.id===undefined?0:number(input.id));
+  }
   async player(actor:Actor,input:any,id?:number){
     if(input.tournamentId)await this.scope(actor,number(input.tournamentId));else this.global(actor);
     if(id)for(const r of await this.db.manager.findBy(Registration,{playerId:id,active:true}))await this.scope(actor,r.tournamentId);
     const p=id?await this.entity(Player,id):new Player();
+    const names=this.playerNames(input);
     if(!/^\d{4}-\d{2}-\d{2}$/.test(input.birthDate)||Number.isNaN(Date.parse(input.birthDate))||new Date(input.birthDate).toISOString().slice(0,10)!==input.birthDate||input.birthDate>today()||input.birthDate<'1920-01-01')throw new BadRequestException('Проверьте дату рождения');
     if(!['G','D','F'].includes(input.position)||!['novice','amateur','school','former_master'].includes(input.qualification))throw new BadRequestException('Выберите амплуа и квалификацию');
-    Object.assign(p,{firstName:text(input.firstName),lastName:text(input.lastName),middleName:text(input.middleName||'',0,100),birthDate:input.birthDate,position:input.position,qualification:input.qualification,insured:input.insured===true,medicallyCleared:input.medicallyCleared===true});
-    await this.db.transaction(async m=>{await m.save(Player,p);if(!id&&input.registerAfter===true)await this.registration(actor,{tournamentId:input.tournamentId,teamId:input.teamId,playerId:p.id,number:input.number,captain:''},m);await this.audit(actor,id?'update':'create','player',p.id,input.tournamentId||null,{},m);});return p;
+    Object.assign(p,{...names,birthDate:input.birthDate,position:input.position,qualification:input.qualification,insured:input.insured===true,medicallyCleared:input.medicallyCleared===true});
+    try {
+      await this.db.transaction(async m=>{
+        if(id&&!await m.findOne(Player,{where:{id},lock:{mode:'pessimistic_write'}}))throw new NotFoundException('Игрок уже удалён или не найден');
+        const identity=await this.findPlayerNames(m,names,id);
+        if(identity.matches.length&&!identity.unchanged)throw new ConflictException('Игрок с таким ФИО уже существует. Выберите существующую карточку, чтобы сохранить общую статистику.');
+        await m.save(Player,p);
+        if(!id&&input.registerAfter===true)await this.registration(actor,{tournamentId:input.tournamentId,teamId:input.teamId,playerId:p.id,number:input.number,captain:''},m);
+        await this.audit(actor,id?'update':'create','player',p.id,input.tournamentId||null,{},m);
+      });
+    }catch(error:any){
+      if((error.driverError||error).constraint==='player_name_unique')throw new ConflictException('Игрок с таким ФИО уже существует. Выберите существующую карточку, чтобы сохранить общую статистику.');
+      throw error;
+    }
+    return p;
   }
+  superuser(actor:Actor){if(actor.role!=='superuser')throw new ForbiddenException('Удалять игроков может только суперпользователь');}
+  async playerDeletionInfo(m:EntityManager,player:Player){
+    const registrations=await m.find(Registration,{where:{playerId:player.id},order:{id:'ASC'}});
+    const tournaments=await m.find(Tournament);const teams=await m.find(Team);
+    const rows=await m.query(`SELECT m.id,m."tournamentId",m."homeTeamId",m."awayTeamId",m."startsAt",
+      bool_or(ref.kind='draft') AS draft,bool_or(ref.kind='published') AS published,count(*) OVER() AS total
+      FROM (
+        SELECT "matchId" AS id,'published' AS kind FROM protocol_revisions WHERE protocol @> ANY($1::jsonb[]) OR identities ? $2
+        UNION ALL SELECT id,'draft' AS kind FROM matches WHERE draft @> ANY($1::jsonb[])
+      ) ref JOIN matches m ON m.id=ref.id
+      GROUP BY m.id ORDER BY m.id LIMIT 20`,[playerProtocolNeedles(player.id),String(player.id)]);
+    const links=registrations.map(r=>{
+      const tournament=tournaments.find(t=>t.id===r.tournamentId);
+      return {id:r.id,tournamentId:r.tournamentId,tournamentName:tournament?.name||'Турнир',teamName:teams.find(t=>t.id===r.teamId)?.name||'Команда',active:r.active,
+        frozen:r.active&&!!tournament&&(!!tournament.qualificationSnapshot||tournament.status==='completed')};
+    });
+    const referenceCount=rows.length?Number(rows[0].total):0;
+    const references=rows.map((row:any)=>({id:row.id,tournamentName:tournaments.find(t=>t.id===row.tournamentId)?.name||'Турнир',
+      homeTeamName:teams.find(t=>t.id===row.homeTeamId)?.name||'Хозяева',awayTeamName:teams.find(t=>t.id===row.awayTeamId)?.name||'Гости',startsAt:row.startsAt,draft:row.draft,published:row.published}));
+    const version=createHash('sha256').update(JSON.stringify([player,registrations])).digest('hex');
+    return {player:{id:player.id,name:name(player),birthDate:player.birthDate},registrations:links,references,referenceCount,version,
+      canDelete:referenceCount===0&&!links.some(r=>r.frozen)};
+  }
+  async checkPlayerDeletion(actor:Actor,id:number){this.superuser(actor);return this.playerDeletionInfo(this.db.manager,await this.entity(Player,id));}
+  async removePlayer(actor:Actor,id:number,input:any){
+    this.superuser(actor);
+    return this.db.transaction(async m=>{
+      // Protocol and registration writers take a shared player lock before creating a reference.
+      const player=await m.findOne(Player,{where:{id},lock:{mode:'pessimistic_write'}});
+      if(!player)throw new NotFoundException('Игрок уже удалён или не найден');
+      const info=await this.playerDeletionInfo(m,player);
+      if(info.referenceCount)throw new ConflictException('Игрок используется в черновиках или опубликованных протоколах. Удаление нарушит историю и статистику. Откройте список связанных матчей.');
+      if(info.registrations.some(r=>r.frozen))throw new ConflictException('Игрок есть в зафиксированной заявке плей-офф или завершённого турнира. Удаление недоступно.');
+      if(typeof input?.expectedVersion!=='string'||input.expectedVersion!==info.version)throw new ConflictException('Карточка или заявки изменились. Закройте окно и повторно откройте удаление.');
+      await m.delete(Registration,{playerId:id});
+      await m.delete(Player,{id});
+      await this.audit(actor,'delete_player','player',id,null,{name:info.player.name,registrations:info.registrations.map(r=>({id:r.id,tournamentId:r.tournamentId,active:r.active}))},m);
+      return {ok:true,id};
+    });
+  }
+
   async registration(actor:Actor,input:any,manager?:EntityManager){
     const tid=number(input.tournamentId);await this.scope(actor,tid);
     const apply=async(m:EntityManager)=>{
@@ -103,7 +175,9 @@ const today=()=>new Date().toISOString().slice(0,10);
       if(t.status==='completed'||t.qualificationSnapshot)throw new ConflictException('Составы зафиксированы после запуска плей-офф');
       if(t.rules.registrationDeadline&&today()>t.rules.registrationDeadline)throw new ConflictException('Срок дозаявок закончился');
       const teamId=number(input.teamId),playerId=number(input.playerId);if(!t.teamIds.includes(teamId))throw new BadRequestException('Команда не участвует в турнире');
-      const player=await this.entity(Player,playerId,m);const regs=await m.findBy(Registration,{tournamentId:tid,active:true});
+      const player=await m.findOne(Player,{where:{id:playerId},lock:{mode:'pessimistic_read'}});
+      if(!player)throw new NotFoundException('Игрок уже удалён или не найден');
+      const regs=await m.findBy(Registration,{tournamentId:tid,active:true});
       const existing=regs.find(r=>r.playerId===playerId);
       if(existing&&existing.teamId!==teamId&&actor.role==='secretary')throw new ForbiddenException('Переход оформляет администратор турнира');
       if(existing&&existing.teamId!==teamId&&existing.transfers>=t.rules.transferLimit)throw new ConflictException('Лимит переходов исчерпан');
@@ -129,7 +203,16 @@ const today=()=>new Date().toISOString().slice(0,10);
     if(p.qualification==='former_master'&&age<46)throw new BadRequestException(`${name(p)}: статус мастера снимается с 46 лет`);
     if(t.rules.profile==='festival'&&t.division==='40+'&&p.qualification==='school'&&!(p.position==='G'&&age>=36))throw new BadRequestException(`${name(p)}: в 40+ спортшкольник допускается только вратарём от 36 лет`);
   }
-  async removeRegistration(actor:Actor,id:number){const r=await this.entity(Registration,id);await this.scope(actor,r.tournamentId);const t=await this.entity(Tournament,r.tournamentId);if(t.qualificationSnapshot)throw new ConflictException('Заявки плей-офф зафиксированы');r.active=false;await this.db.manager.save(r);await this.audit(actor,'remove','registration',id,r.tournamentId);return {ok:true};}
+  async removeRegistration(actor:Actor,id:number){
+    const existing=await this.entity(Registration,id);await this.scope(actor,existing.tournamentId);
+    return this.db.transaction(async m=>{
+      const t=await m.findOneOrFail(Tournament,{where:{id:existing.tournamentId},lock:{mode:'pessimistic_write'}});
+      if(!await m.findOne(Player,{where:{id:existing.playerId},lock:{mode:'pessimistic_read'}}))throw new NotFoundException('Игрок уже удалён или не найден');
+      const r=await this.entity(Registration,id,m);
+      if(t.qualificationSnapshot)throw new ConflictException('Заявки плей-офф зафиксированы');
+      r.active=false;await m.save(r);await this.audit(actor,'remove','registration',id,r.tournamentId,{},m);return {ok:true};
+    });
+  }
   async generateSchedule(actor:Actor,id:number,input:any){await this.scope(actor,id,true);return this.db.transaction(async m=>{
     await m.findOneOrFail(Community,{where:{singleton:true},lock:{mode:'pessimistic_write'}});
     const t=await m.findOneOrFail(Tournament,{where:{id},lock:{mode:'pessimistic_write'}});
@@ -201,6 +284,7 @@ const today=()=>new Date().toISOString().slice(0,10);
     const match=await this.entity(Match,id);const t=await this.entity(Tournament,match.tournamentId);if(actor)await this.scope(actor,t.id);else if(t.status==='draft')throw new NotFoundException();
     const revisions=await this.db.manager.find(Revision,{where:{matchId:id},order:{version:'DESC'}});const latest=revisions.find(x=>x.version===match.protocolVersion);
     const payload:any={match,tournament:t,protocol:latest?protocolInMatchTime(latest.protocol,t.rules):null,identities:latest?Object.fromEntries(Object.entries(latest.identities).map(([id,p])=>[id,actor?p:{name:p.name,position:p.position}])):{},history:actor?revisions.map(r=>({version:r.version,actorId:r.actorId,reason:r.reason,createdAt:r.createdAt})):[]};
+    if(!actor&&payload.protocol?.sheet){payload.protocol={...payload.protocol,sheet:{...payload.protocol.sheet}};delete payload.protocol.sheet.injuryNotes;}
     if(actor){const raw=await this.db.getRepository(Match).createQueryBuilder('m').addSelect('m.draft').where('m.id=:id',{id}).getOneOrFail();payload.draft=raw.draft?protocolInMatchTime(raw.draft,t.rules):null;payload.draftVersion=raw.draftVersion;const regs=await this.db.manager.findBy(Registration,{tournamentId:t.id,active:true});const pids=regs.filter(r=>[match.homeTeamId,match.awayTeamId].includes(r.teamId)).map(r=>r.playerId);const players=await this.db.manager.findBy(Player,{id:In(pids.length?pids:[0])});payload.candidates=regs.filter(r=>pids.includes(r.playerId)).map(r=>({...r,player:{...players.find(p=>p.id===r.playerId),name:name(players.find(p=>p.id===r.playerId)!)}}));}
     return payload;
   }
@@ -212,6 +296,11 @@ const today=()=>new Date().toISOString().slice(0,10);
       if(t.status==='draft'||current.status==='cancelled')throw new ConflictException('Матч недоступен для протокола');
       if(input.expectedDraftVersion!==current.draftVersion||input.expectedProtocolVersion!==current.protocolVersion)throw new ConflictException('Протокол изменён в другом окне. Обновите страницу');
       ruleCheck(()=>validateProtocolShape(input.protocol));const p=input.protocol as Protocol;
+      const referencedIds=protocolPlayerIds(p);
+      if(referencedIds.length){
+        const referencedPlayers=await m.getRepository(Player).createQueryBuilder('p').where('p.id IN (:...ids)',{ids:referencedIds}).orderBy('p.id','ASC').setLock('pessimistic_read').getMany();
+        if(referencedPlayers.length!==referencedIds.length)throw new ConflictException('В протоколе есть удалённый или неизвестный игрок. Обновите составы перед сохранением.');
+      }
       if(!publish){current.draft=p;current.draftVersion++;await m.save(current);await this.audit(actor,'save_draft','match',id,t.id,{},m);return {draftVersion:current.draftVersion,protocolVersion:current.protocolVersion};}
       if(!current.homeTeamId||!current.awayTeamId)throw new BadRequestException('Участники матча ещё не определены');
       if(current.protocolVersion>0&&!input.reason?.trim())throw new BadRequestException('Для исправления укажите причину');

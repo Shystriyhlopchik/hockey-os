@@ -19,6 +19,7 @@ export async function seed(db:DataSource){
     const teamNames=['Север','Сокол','Волна','Спартак','Метеор','Атлант','Сталь','Динамо','Ветераны','Рубин','Полярник','Локомотив','Барс','Вымпел','Олимп','Факел'];
     const colors=['#1f5970','#d76b38','#2b7b91','#a84044','#526993','#9e823d','#526a62','#356aab'];
     const first=['Александр','Михаил','Андрей','Дмитрий','Иван','Сергей','Алексей','Николай','Владимир','Павел','Евгений','Максим','Роман','Артём','Илья','Олег','Виктор','Кирилл','Денис','Антон','Пётр','Виталий'];
+    const middle=['Александрович','Михайлович','Иванович','Сергеевич','Петрович','Владимирович','Николаевич','Андреевич'];
     const last=['Ледов','Снежнов','Соколов','Ветров','Озеров','Морозов','Рощин','Зорин','Белов','Рыбаков','Серов','Поляков','Кедров','Тихонов','Волков','Громов','Березин','Лазарев','Руднев','Зимин','Фролов','Быстров'];
     for(let division=0;division<2;division++){
       const teams:Team[]=[];const roster=new Map<number,any[]>();
@@ -26,7 +27,7 @@ export async function seed(db:DataSource){
       for(let teamIndex=0;teamIndex<8;teamIndex++){
         const team=await m.save(Team,m.create(Team,{name:teamNames[teamIndex+division*8],city:'Чебоксары',abbreviation:teamNames[teamIndex+division*8].slice(0,3).toUpperCase(),color:colors[teamIndex],description:'Любительская хоккейная команда. Демонстрационная карточка.'}));teams.push(team);const entries=[];
         for(let i=0;i<22;i++){
-          const p=await m.save(Player,m.create(Player,{firstName:first[(i+teamIndex)%22],lastName:last[(i*3+teamIndex*2)%22]+(teamIndex>3?'ский':''),middleName:'',birthDate:`${division?1966+(i+teamIndex)%18:1980+(i+teamIndex)%25}-${String(i%12+1).padStart(2,'0')}-${String(i%27+1).padStart(2,'0')}`,position:i<2?'G':i<9?'D':'F',qualification:i%4===0?'novice':'amateur',insured:true,medicallyCleared:true}));
+          const p=await m.save(Player,m.create(Player,{firstName:first[(i+teamIndex)%22],lastName:last[(i*3+teamIndex*2)%22]+(teamIndex>3?'ский':''),middleName:middle[division*4+(i+teamIndex)%4],birthDate:`${division?1966+(i+teamIndex)%18:1980+(i+teamIndex)%25}-${String(i%12+1).padStart(2,'0')}-${String(i%27+1).padStart(2,'0')}`,position:i<2?'G':i<9?'D':'F',qualification:i%4===0?'novice':'amateur',insured:true,medicallyCleared:true}));
           await m.save(Registration,m.create(Registration,{tournamentId:tournament.id,teamId:team.id,playerId:p.id,number:i+1,captain:i===9?'C':i===10||i===11?'A':'',active:true}));entries.push({playerId:p.id,number:i+1,position:p.position,captain:i===9?'C':i===10||i===11?'A':'',played:i!==1});
         }roster.set(team.id,entries);
       }
@@ -41,7 +42,7 @@ export async function seed(db:DataSource){
           for(const [tid,count,entries] of [[pair.homeTeamId,hs,p.homeRoster],[pair.awayTeamId,as,p.awayRoster]] as const)for(let j=0;j<count;j++)p.goals.push({id:`demo-${tid}-${j}`,teamId:tid,period:j%3+1,time:`${String(2+(j*3)%12).padStart(2,'0')}:24`,scorerId:entries[9+j%10].playerId,assist1Id:entries[3+j%5].playerId,assist2Id:j%2?null:entries[15+j%5].playerId,situation:j%3===0?'PP':'EV'});
           p.penalties=[{id:'demo-penalty',teamId:pair.awayTeamId,playerId:p.awayRoster[4].playerId,period:1,time:'01:30',minutes:2,code:'Подножка'}];
           p.goalieShifts=[{teamId:pair.homeTeamId,playerId:p.homeRoster[0].playerId,from:'00:00',to:'45:00'},{teamId:pair.awayTeamId,playerId:p.awayRoster[0].playerId,from:'00:00',to:'45:00'}];
-          const result=resolveProtocol(p,match as any,tournament.rules);const identities:any={};for(const entry of [...p.homeRoster,...p.awayRoster]){const player=await m.findOneByOrFail(Player,{id:entry.playerId});identities[player.id]={name:`${player.lastName} ${player.firstName}`,birthDate:player.birthDate,position:player.position};}
+          const result=resolveProtocol(p,match as any,tournament.rules);const identities:any={};for(const entry of [...p.homeRoster,...p.awayRoster]){const player=await m.findOneByOrFail(Player,{id:entry.playerId});identities[player.id]={name:`${player.lastName} ${player.firstName} ${player.middleName}`,birthDate:player.birthDate,position:player.position};}
           await m.save(Revision,m.create(Revision,{matchId:match.id,version:1,actorId:secretary.id,protocol:p,result,identities,reason:''}));Object.assign(match,result,{status:'completed',protocolVersion:1,publishedAt:date});await m.save(match);
         }
       }

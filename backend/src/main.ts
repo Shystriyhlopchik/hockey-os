@@ -10,6 +10,7 @@ import {resolve} from 'node:path';
 import {existsSync} from 'node:fs';
 import {ENTITIES} from './entities';
 import {Initial1794139200000} from './migrations/initial';
+import {PlayerIdentity1794614400000} from './migrations/player-identity';
 import {AppService} from './app.service';
 import {AppController} from './app.controller';
 import {SessionGuard} from './security';
@@ -21,7 +22,7 @@ import {seed} from './seed';
   }
 }
 @Module({imports:[ConfigModule.forRoot({isGlobal:true,envFilePath:[resolve(process.cwd(),'.env'),resolve(process.cwd(),'../.env')]}),
-  TypeOrmModule.forRootAsync({useFactory:()=>({type:'postgres' as const,url:process.env.DATABASE_URL,entities:ENTITIES,migrations:[Initial1794139200000],migrationsRun:true,synchronize:false,retryAttempts:3,retryDelay:1000})}),
+  TypeOrmModule.forRootAsync({useFactory:()=>({type:'postgres' as const,url:process.env.DATABASE_URL,entities:ENTITIES,migrations:[Initial1794139200000,PlayerIdentity1794614400000],migrationsRun:true,synchronize:false,retryAttempts:3,retryDelay:1000})}),
   JwtModule.registerAsync({useFactory:()=>{if(!process.env.JWT_SECRET||process.env.JWT_SECRET.length<32)throw new Error('JWT_SECRET должен содержать минимум 32 символа');return {secret:process.env.JWT_SECRET,signOptions:{expiresIn:'8h'}};}})],
   controllers:[AppController],providers:[AppService,{provide:APP_GUARD,useClass:SessionGuard}]}) class AppModule {}
 async function bootstrap(){
