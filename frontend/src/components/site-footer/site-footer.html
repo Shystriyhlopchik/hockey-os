@@ -1,0 +1,25 @@
+<footer>
+  <div class="footer-inner">
+    <a class="footer-brand" routerLink="/"
+      ><img
+        src="/branding/chhl-logo.png"
+        alt="Логотип Чебоксарской хоккейной лиги"
+        width="60"
+        height="60"
+      /><span>ЧЕБОКСАРСКАЯ<br />ХОККЕЙНАЯ ЛИГА</span></a
+    >
+    <nav aria-label="Информация о лиге">
+      <a routerLink="/regulations">О лиге и регламент</a><a routerLink="/calendar">Матчи</a
+      ><a routerLink="/teams">Команды</a>
+    </nav>
+    <div class="footer-contact">
+      <small>Связаться с лигой</small
+      ><a [href]="'mailto:' + community().email">{{ community().email }}</a
+      ><span>{{ community().city }}</span>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <span>© {{ year }} Чебоксарская хоккейная лига</span><span>Наш город. Наш хоккей.</span
+    ><a routerLink="/office">Кабинет организатора ↗</a>
+  </div>
+</footer>

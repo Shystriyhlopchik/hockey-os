@@ -1,0 +1,152 @@
+@if (vm.detail()) {
+  <section class="content-section">
+    <a class="back-link" routerLink="/calendar">← Календарь матчей</a>
+    <div class="public-match-heading">
+      <span class="eyebrow"
+        >{{ vm.detail().tournament.name }} · МАТЧ #{{ vm.detail().match.id }}</span
+      >
+      <p>
+        {{ vm.date(vm.detail().match.startsAt) }} · {{ vm.time(vm.detail().match.startsAt) }} МСК ·
+        {{ vm.detail().match.venue }}
+      </p>
+    </div>
+    <div class="protocol-scoreboard public-scoreboard">
+      <div>
+        <app-team-badge [team]="vm.teamById(vm.detail().match.homeTeamId)" size="lg" />
+        <h2>{{ vm.teamName(vm.detail().match.homeTeamId) }}</h2>
+        <small>ХОЗЯЕВА</small>
+      </div>
+      <div class="big-score">
+        <span
+          >{{ vm.detail().match.status === 'completed' ? vm.detail().match.homeScore : '—' }}<i>:</i
+          >{{ vm.detail().match.status === 'completed' ? vm.detail().match.awayScore : '—' }}</span
+        ><small>{{
+          vm.detail().match.status === 'completed'
+            ? vm.outcomes[vm.detail().match.resolution]
+            : 'Матч ещё не
+        сыгран'
+        }}</small>
+      </div>
+      <div>
+        <app-team-badge [team]="vm.teamById(vm.detail().match.awayTeamId)" size="lg" />
+        <h2>{{ vm.teamName(vm.detail().match.awayTeamId) }}</h2>
+        <small>ГОСТИ</small>
+      </div>
+    </div>
+    @if (vm.detail().protocol; as p) {
+      <div class="period-scores">
+        @for (s of vm.detail().match.periodScores; track s.label) {
+          <span
+            >{{ s.label }} период <b>{{ s.home }} : {{ s.away }}</b></span
+          >
+        }
+        <span
+          >Протокол <b>v{{ vm.detail().match.protocolVersion }}</b></span
+        ><a [href]="'/api/matches/' + vm.entityId() + '/export.xlsx'">XLSX ↓</a
+        ><button class="text-button" (click)="vm.print()">Печать / PDF ↗</button>
+      </div>
+      <p class="muted">Время голов и удалений указано от начала матча.</p>
+      <div class="home-columns">
+        <section>
+          <h2>Голы матча</h2>
+          @for (g of p.goals; track g.id) {
+            <div class="timeline-goal">
+              <span>{{ g.period }}<small>ПЕРИОД</small></span
+              ><b>{{ g.time }}</b>
+              <div>
+                <a [routerLink]="'/players/' + g.scorerId"
+                  ><strong>{{ vm.playerName(g.scorerId) }}</strong></a
+                ><small>{{ vm.teamName(g.teamId) }} · {{ g.situation }}</small
+                ><small>
+                  @if (g.assist1Id) {
+                    {{ vm.playerName(g.assist1Id) }}
+                  }
+                  @if (g.assist2Id) {
+                    , {{ vm.playerName(g.assist2Id) }}
+                  }
+                </small>
+              </div>
+            </div>
+          } @empty {
+            <p class="muted">
+              {{
+                p.detailLevel === 'score_only'
+                  ? 'Опубликован только итоговый счёт.'
+                  : 'Заброшенных шайб нет.'
+              }}
+            </p>
+          }
+        </section>
+        <section>
+          <h2>Удаления</h2>
+          @for (e of p.penalties; track e.id) {
+            <div class="timeline-goal">
+              <span>{{ e.period }}<small>ПЕРИОД</small></span
+              ><b>{{ e.time }}</b>
+              <div>
+                <strong>{{
+                  e.playerId
+                    ? vm.playerName(e.playerId)
+                    : 'Командный
+            штраф'
+                }}</strong
+                ><small
+                  >{{ vm.teamName(e.teamId) }} ·
+                  {{ e.kind === 'penalty_shot' ? 'ШБ' : e.minutes + ' мин' }} · {{ e.code }}</small
+                >
+              </div>
+            </div>
+          } @empty {
+            <p class="muted">Удаления не зафиксированы.</p>
+          }
+        </section>
+      </div>
+      <div class="protocol-rosters content-section">
+        @for (
+          side of [
+            ['homeRoster', vm.detail().match.homeTeamId],
+            ['awayRoster', vm.detail().match.awayTeamId],
+          ];
+          track side[0]
+        ) {
+          <section>
+            <h2>{{ vm.teamName($any(side[1])) }} · состав</h2>
+            <div class="roster-list">
+              @for (r of p[$any(side[0])]; track r.playerId) {
+                <div>
+                  <span class="jersey">{{ r.number }}</span
+                  ><span
+                    ><b>{{ vm.playerName(r.playerId) }}</b
+                    ><small
+                      >{{ vm.positions[r.position] }} {{ r.captain ? '· ' + r.captain : '' }}</small
+                    ></span
+                  ><span class="badge">{{ r.played ? 'Участвовал' : 'Запасной' }}</span>
+                </div>
+              }
+            </div>
+          </section>
+        }
+      </div>
+      <section class="panel">
+        <h3>Официальные сведения</h3>
+        <p>
+          Главный судья: {{ p.referee || 'Не указан' }} · Зрители:
+          {{ p.spectators ?? 'Нет данных' }}
+        </p>
+        @if (p.notes) {
+          <p>{{ p.notes }}</p>
+        }
+        @if (p.technicalReason) {
+          <p>{{ p.technicalReason }}</p>
+        }
+      </section>
+    } @else {
+      <div class="empty panel">
+        <h2>Встречаемся на льду</h2>
+        <p>Официальный протокол появится после матча.</p>
+      </div>
+    }
+  </section>
+} @else {
+  <p class="empty">Загружаем матч…</p>
+}

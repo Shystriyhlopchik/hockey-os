@@ -1,0 +1,962 @@
+@if (vm.modal()) {
+  <div
+    class="modal-backdrop"
+    (click)="$event.target === $event.currentTarget ? vm.closeModal() : null"
+  >
+    <section
+      class="modal"
+      [class.wide]="vm.modal() === 'tournament' || vm.modal() === 'calendar'"
+      [class.calendar-modal]="vm.modal() === 'calendar'"
+      [class.player-delete-modal]="vm.modal() === 'delete-player'"
+      role="dialog"
+      appDialogFocus
+      (dialogDismiss)="vm.closeModal()"
+      aria-modal="true"
+      [attr.aria-label]="
+        vm.modal() === 'login'
+          ? 'Вход в кабинет'
+          : vm.modal() === 'delete-player'
+            ? 'Удаление игрока'
+            : vm.modal() === 'calendar'
+              ? 'Редактирование календаря'
+              : 'Редактирование данных'
+      "
+    >
+      <button class="modal-close" (click)="vm.closeModal()" aria-label="Закрыть">×</button>
+      @if (vm.modal() === 'login') {
+        <img
+          class="modal-emblem"
+          src="/branding/chhl-logo.png"
+          width="72"
+          height="72"
+          alt="Логотип Чебоксарской хоккейной лиги"
+        />
+      }
+      <span class="eyebrow">{{
+        vm.modal() === 'login'
+          ? 'ЧЕБОКСАРСКАЯ ХЛ'
+          : 'КАБИНЕТ
+      ОРГАНИЗАТОРА'
+      }}</span>
+      <h2>
+        {{
+          vm.modal() === 'login'
+            ? 'С возвращением.'
+            : vm.modal() === 'team'
+              ? 'Карточка команды'
+              : vm.modal() === 'player'
+                ? 'Карточка хоккеиста'
+                : vm.modal() === 'delete-player'
+                  ? 'Удаление игрока'
+                  : vm.modal() === 'tournament'
+                    ? 'Настройки турнира'
+                    : vm.modal() === 'user'
+                      ? 'Пользователь
+      и права'
+                      : vm.modal() === 'registration'
+                        ? 'Сезонная заявка'
+                        : vm.modal() === 'calendar'
+                          ? 'Редактирование календаря'
+                          : vm.modal() === 'schedule'
+                            ? 'Календарь и площадка'
+                            : vm.modal() === 'playoff'
+                              ? 'Запуск плей-офф'
+                              : vm.modal() === 'news'
+                                ? 'Новость сообщества'
+                                : vm.modal() === 'season'
+                                  ? 'Новый сезон'
+                                  : vm.modal() === 'staff'
+                                    ? 'Назначение секретарей'
+                                    : 'Настройки сообщества'
+        }}
+      </h2>
+      @if (vm.error()) {
+        <div class="inline-error" role="alert">{{ vm.error() }}</div>
+      }
+      <form (ngSubmit)="vm.saveForm()">
+        @if (vm.modal() === 'delete-player') {
+          <div class="player-delete-identity">
+            <b>{{ vm.form().player.name }}</b
+            ><span>Карточка № {{ vm.form().player.id }} · {{ vm.form().player.birthDate }}</span>
+          </div>
+          @if (vm.form().canDelete) {
+            <p>
+              Карточка будет удалена из всей системы вместе с её заявками во всех лигах и сезонах.
+              Восстановить её через приложение нельзя.
+            </p>
+          } @else {
+            <div class="player-delete-blocked" role="status">
+              <b>Удаление недоступно</b>
+              <p>
+                {{
+                  vm.form().referenceCount
+                    ? 'Карточка используется в протоколах. Она
+          нужна для сохранения истории матчей и статистики.'
+                    : 'Игрок есть в
+          зафиксированной заявке плей-офф или завершённого турнира.'
+                }}
+              </p>
+            </div>
+          }
+          @if (vm.form().registrations.length) {
+            <h3>Заявки игрока · {{ vm.form().registrations.length }}</h3>
+            <ul class="player-delete-list">
+              @for (r of vm.form().registrations; track r.id) {
+                <li>
+                  <b>{{ r.tournamentName }}</b
+                  ><span
+                    >{{ r.teamName }} · {{ r.active ? 'Действующая' : 'Архивная'
+                    }}{{ r.frozen ? ' · Состав зафиксирован' : '' }}</span
+                  >
+                </li>
+              }
+            </ul>
+          } @else {
+            <p class="muted">Сезонных заявок нет.</p>
+          }
+          @if (vm.form().referenceCount) {
+            <h3>Связанные матчи · {{ vm.form().referenceCount }}</h3>
+            <ul class="player-delete-list">
+              @for (m of vm.form().references; track m.id) {
+                <li>
+                  <a [routerLink]="'/office/protocol/' + m.id" (click)="vm.closeModal()"
+                    >Матч № {{ m.id }} · {{ m.homeTeamName }} — {{ m.awayTeamName }} ↗</a
+                  ><span
+                    >{{ m.tournamentName }} · {{ m.published ? 'Опубликованный протокол' : ''
+                    }}{{ m.published && m.draft ? ' и ' : '' }}{{ m.draft ? 'Черновик' : '' }}</span
+                  >
+                </li>
+              }
+            </ul>
+            @if (vm.form().referenceCount > vm.form().references.length) {
+              <p class="muted">Показаны первые {{ vm.form().references.length }} матчей.</p>
+            }
+            <p class="muted">
+              Если игрок ошибочно заявлен в лигу, исключите его из сезонной заявки через «Команды и
+              составы». Существующие дубли с историей требуют отдельного объединения.
+            </p>
+          }
+          @if (vm.form().canDelete) {
+            <label class="check-label player-delete-confirm"
+              ><input
+                type="checkbox"
+                name="confirmed"
+                [ngModel]="vm.form().confirmed"
+                (ngModelChange)="vm.patchForm(['confirmed'], $event)"
+              />Подтверждаю удаление карточки и всех её заявок</label
+            >
+          }
+        }
+        @if (vm.modal() === 'login') {
+          <p class="muted">Войдите под учётной записью организатора или секретаря.</p>
+          <label
+            >Логин<input
+              name="username"
+              [ngModel]="vm.form().username"
+              (ngModelChange)="vm.patchForm(['username'], $event)"
+              required
+              autocomplete="username"
+              autofocus /></label
+          ><label
+            >Пароль<input
+              type="password"
+              name="password"
+              [ngModel]="vm.form().password"
+              (ngModelChange)="vm.patchForm(['password'], $event)"
+              required
+              autocomplete="current-password"
+          /></label>
+          @if (vm.data().demo) {
+            <p class="demo-hint">
+              Демо: <b>secretary</b> или <b>admin</b><br />Пароль: <b>Hockey2026!</b>
+            </p>
+          }
+        }
+        @if (vm.modal() === 'team') {
+          <label
+            >Название<input
+              name="name"
+              [ngModel]="vm.form().name"
+              (ngModelChange)="vm.patchForm(['name'], $event)"
+              required
+          /></label>
+          <div class="form-grid">
+            <label
+              >Город<input
+                name="city"
+                [ngModel]="vm.form().city"
+                (ngModelChange)="vm.patchForm(['city'], $event)"
+                required /></label
+            ><label
+              >Сокращение (до 4 букв)<input
+                name="abbr"
+                [ngModel]="vm.form().abbreviation"
+                (ngModelChange)="vm.patchForm(['abbreviation'], $event)"
+                maxlength="4"
+                required
+            /></label>
+          </div>
+          <label
+            >Цвет команды<input
+              name="color"
+              type="color"
+              [ngModel]="vm.form().color"
+              (ngModelChange)="vm.patchForm(['color'], $event)" /></label
+          ><label
+            >Описание<textarea
+              name="description"
+              [ngModel]="vm.form().description"
+              (ngModelChange)="vm.patchForm(['description'], $event)"
+              rows="3"
+            ></textarea>
+          </label>
+        }
+        @if (vm.modal() === 'player') {
+          <p class="player-identity-intro">
+            У игрока одна карточка для всех сезонов и турниров. Для другой лиги добавьте заявку
+            существующему игроку.
+          </p>
+          @if (vm.playerIdentityPending()) {
+            <p class="player-identity-status" role="status">Проверяем ФИО по общему реестру…</p>
+          }
+          @if (vm.playerIdentityError()) {
+            <div class="player-identity-warning" role="alert">
+              <b>Не удалось проверить ФИО</b>
+              <p>{{ vm.playerIdentityError() }}</p>
+              <button type="button" class="text-button" (click)="vm.checkPlayerIdentity()">
+                Повторить проверку
+              </button>
+            </div>
+          }
+          @if (vm.playerIdentityMatches().length) {
+            <div class="player-identity-warning" role="status">
+              <b>{{
+                vm.playerIdentityUnchanged()
+                  ? 'В реестре уже есть дубли этого ФИО'
+                  : 'Игрок с таким ФИО уже существует'
+              }}</b>
+              <p>
+                {{
+                  vm.playerIdentityUnchanged()
+                    ? 'Можно исправить данные этой
+          карточки. Объединение существующих дублей требует отдельной проверки
+          истории.'
+                    : 'Новая карточка разделит статистику. Используйте
+          существующего игрока; другая дата рождения не отменяет совпадение
+          ФИО.'
+                }}
+              </p>
+              @for (existingPlayer of vm.playerIdentityMatches(); track existingPlayer.id) {
+                <div class="player-identity-match">
+                  <span
+                    >{{ existingPlayer.name
+                    }}<small>Карточка № {{ existingPlayer.id }}</small></span
+                  >
+                  @if (
+                    !vm.form().id &&
+                    (vm.form().registerAfter || vm.canUseExistingPlayer(existingPlayer.id))
+                  ) {
+                    <button
+                      type="button"
+                      class="btn secondary compact"
+                      (click)="vm.useExistingPlayer(existingPlayer)"
+                    >
+                      {{
+                        vm.form().registerAfter
+                          ? vm.existingPlayerRegistration(existingPlayer.id)
+                            ? 'Открыть заявку'
+                            : 'Заявить этого игрока'
+                          : 'Открыть карточку'
+                      }}
+                    </button>
+                  }
+                </div>
+              }
+            </div>
+          }
+        }
+        @if (vm.modal() === 'player') {
+          <div class="form-grid">
+            <label
+              >Фамилия<input
+                name="lastName"
+                [ngModel]="vm.form().lastName"
+                (ngModelChange)="vm.patchForm(['lastName'], $event); vm.schedulePlayerIdentity()"
+                maxlength="200"
+                required /></label
+            ><label
+              >Имя<input
+                name="firstName"
+                [ngModel]="vm.form().firstName"
+                (ngModelChange)="vm.patchForm(['firstName'], $event); vm.schedulePlayerIdentity()"
+                maxlength="200"
+                required /></label
+            ><label
+              >Отчество<input
+                name="middleName"
+                [ngModel]="vm.form().middleName"
+                (ngModelChange)="vm.patchForm(['middleName'], $event); vm.schedulePlayerIdentity()"
+                maxlength="100" /></label
+            ><label
+              >Дата рождения<input
+                name="birth"
+                type="date"
+                [ngModel]="vm.form().birthDate"
+                (ngModelChange)="vm.patchForm(['birthDate'], $event)"
+                required /></label
+            ><label
+              >Амплуа<select
+                name="position"
+                [ngModel]="vm.form().position"
+                (ngModelChange)="vm.patchForm(['position'], $event)"
+              >
+                <option value="G">Вратарь</option>
+                <option value="D">Защитник</option>
+                <option value="F">Нападающий</option>
+              </select></label
+            ><label
+              >Квалификация<select
+                name="qualification"
+                [ngModel]="vm.form().qualification"
+                (ngModelChange)="vm.patchForm(['qualification'], $event)"
+              >
+                <option value="novice">Новичок</option>
+                <option value="amateur">Любитель</option>
+                <option value="school">Спортшкольник</option>
+                <option value="former_master">Бывший мастер</option>
+              </select></label
+            >
+          </div>
+          <label class="check-label"
+            ><input
+              name="insured"
+              type="checkbox"
+              [ngModel]="vm.form().insured"
+              (ngModelChange)="vm.patchForm(['insured'], $event)"
+            />Страховка проверена</label
+          ><label class="check-label"
+            ><input
+              name="med"
+              type="checkbox"
+              [ngModel]="vm.form().medicallyCleared"
+              (ngModelChange)="vm.patchForm(['medicallyCleared'], $event)"
+            />Медицинский допуск проверен</label
+          >
+          @if (!vm.form().id) {
+            <label class="check-label"
+              ><input
+                name="register"
+                type="checkbox"
+                [ngModel]="vm.form().registerAfter"
+                (ngModelChange)="vm.patchForm(['registerAfter'], $event)"
+              />Сразу включить в сезонную заявку</label
+            >
+            @if (vm.form().registerAfter) {
+              <div class="form-grid">
+                <label
+                  >Команда<select
+                    name="team"
+                    [ngModel]="vm.form().teamId"
+                    (ngModelChange)="vm.patchForm(['teamId'], $event)"
+                  >
+                    @for (t of vm.tournamentTeams(); track t.id) {
+                      <option [ngValue]="t.id">{{ t.name }}</option>
+                    }
+                  </select></label
+                ><label
+                  >Игровой номер<input
+                    name="num"
+                    type="number"
+                    min="1"
+                    max="99"
+                    [ngModel]="vm.form().number"
+                    (ngModelChange)="vm.patchForm(['number'], $event)"
+                    required
+                /></label>
+              </div>
+            }
+          }
+        }
+        @if (vm.modal() === 'registration') {
+          <p class="muted">
+            Для второй лиги выберите существующего игрока. В каждой лиге у него одна действующая
+            команда; статистика учитывается отдельно по лиге и команде.
+          </p>
+          <label
+            >Команда<select
+              name="teamId"
+              [ngModel]="vm.form().teamId"
+              (ngModelChange)="vm.patchForm(['teamId'], $event)"
+            >
+              @for (t of vm.tournamentTeams(); track t.id) {
+                <option [ngValue]="t.id">{{ t.name }}</option>
+              }
+            </select></label
+          ><label
+            >Игрок<select
+              name="playerId"
+              [ngModel]="vm.form().playerId"
+              (ngModelChange)="vm.patchForm(['playerId'], $event)"
+            >
+              @for (p of vm.registrationPlayers(); track p.id) {
+                <option [ngValue]="p.id">
+                  {{ p.name }}{{ p.birthDate ? ' · ' + p.birthDate.slice(0, 4) + ' г. р.' : '' }}
+                </option>
+              }
+            </select></label
+          >
+          @if (vm.registrationOtherLeagues().length) {
+            <div class="registration-other-leagues">
+              <b>Игрок уже заявлен в других лигах</b>
+              @for (r of vm.registrationOtherLeagues(); track r.id) {
+                <p>
+                  {{ vm.registrationTournamentName(r.tournamentId) }} ·
+                  {{ vm.teamName(r.teamId) }} · №{{ r.number }}
+                </p>
+              }
+              <small>Новая заявка сохранит его команду и статистику в другой лиге.</small>
+            </div>
+          }
+          <div class="form-grid">
+            <label
+              >Номер<input
+                name="number"
+                type="number"
+                min="1"
+                max="99"
+                [ngModel]="vm.form().number"
+                (ngModelChange)="vm.patchForm(['number'], $event)"
+                required /></label
+            ><label
+              >Капитан / ассистент<select
+                name="captain"
+                [ngModel]="vm.form().captain"
+                (ngModelChange)="vm.patchForm(['captain'], $event)"
+              >
+                <option value="">Нет</option>
+                <option value="C">Капитан</option>
+                <option value="A">Ассистент</option>
+              </select></label
+            >
+          </div>
+          <p class="muted">
+            Если игрок уже заявлен за другую команду этого турнира, администратор оформляет переход.
+          </p>
+        }
+        @if (vm.modal() === 'tournament') {
+          <div class="form-grid">
+            <label
+              >Название<input
+                name="name"
+                [ngModel]="vm.form().name"
+                (ngModelChange)="vm.patchForm(['name'], $event)"
+                required /></label
+            ><label
+              >Адрес (латиницей)<input
+                name="slug"
+                [ngModel]="vm.form().slug"
+                (ngModelChange)="vm.patchForm(['slug'], $event)"
+                required
+                pattern="[a-z0-9-]+" /></label
+            ><label
+              >Сезон<select
+                name="season"
+                [ngModel]="vm.form().seasonId"
+                (ngModelChange)="vm.patchForm(['seasonId'], $event)"
+              >
+                @for (s of vm.data().seasons; track s.id) {
+                  <option [ngValue]="s.id">{{ s.name }}</option>
+                }
+              </select></label
+            ><label
+              >Дивизион<input
+                name="division"
+                [ngModel]="vm.form().division"
+                (ngModelChange)="vm.patchForm(['division'], $event)"
+                required
+            /></label>
+          </div>
+          <label
+            >Описание<textarea
+              name="description"
+              [ngModel]="vm.form().description"
+              (ngModelChange)="vm.patchForm(['description'], $event)"
+              rows="2"
+            ></textarea>
+          </label>
+          <h3>Команды турнира</h3>
+          <div class="team-checkboxes">
+            @for (t of vm.data().teams; track t.id) {
+              <label class="check-label"
+                ><input
+                  type="checkbox"
+                  [checked]="vm.form().teamIds.includes(t.id)"
+                  (change)="vm.toggleList(vm.form().teamIds, t.id, $any($event.target).checked)"
+                  [disabled]="vm.form().id && vm.form().status !== 'draft'"
+                />{{ t.name }}</label
+              >
+            }
+          </div>
+          <h3>Правила турнира</h3>
+          @if (vm.form().status && vm.form().status !== 'draft') {
+            <p class="muted">Правила запущенного турнира зафиксированы.</p>
+          }
+          <fieldset [disabled]="vm.form().id && vm.form().status !== 'draft'">
+            <label
+              >Профиль<select
+                name="profile"
+                [ngModel]="vm.form().rules.profile"
+                (ngModelChange)="
+                  vm.patchForm(['rules', 'profile'], $event); vm.profileChanged($event)
+                "
+              >
+                <option value="festival">Фестиваль · Положение</option>
+                <option value="standard">Стандартный хоккей</option>
+                <option value="custom">Свой профиль</option>
+              </select></label
+            >
+            <div class="form-grid rules-grid">
+              @for (field of vm.ruleFields; track field[0]) {
+                <label
+                  >{{ field[1]
+                  }}<input
+                    [name]="field[0]"
+                    type="number"
+                    [ngModel]="vm.form().rules[field[0]]"
+                    (ngModelChange)="vm.patchForm(['rules', field[0]], $event)"
+                    required
+                /></label>
+              }
+            </div>
+            <label
+              >Закрытие дозаявок<input
+                type="date"
+                name="deadline"
+                [ngModel]="vm.form().rules.registrationDeadline"
+                (ngModelChange)="vm.patchForm(['rules', 'registrationDeadline'], $event)" /></label
+            ><label class="check-label"
+              ><input
+                name="draw"
+                type="checkbox"
+                [ngModel]="vm.form().rules.allowDraw"
+                (ngModelChange)="vm.patchForm(['rules', 'allowDraw'], $event)"
+              />Разрешены ничьи в регулярном этапе</label
+            ><label class="check-label"
+              ><input
+                name="checking"
+                type="checkbox"
+                [ngModel]="vm.form().rules.noChecking"
+                (ngModelChange)="vm.patchForm(['rules', 'noChecking'], $event)"
+              />Без силовых приёмов</label
+            >
+          </fieldset>
+        }
+        @if (vm.modal() === 'user') {
+          <div class="form-grid">
+            <label
+              >Имя пользователя<input
+                name="displayName"
+                [ngModel]="vm.form().displayName"
+                (ngModelChange)="vm.patchForm(['displayName'], $event)"
+                required /></label
+            ><label
+              >Логин<input
+                name="username"
+                [ngModel]="vm.form().username"
+                (ngModelChange)="vm.patchForm(['username'], $event)"
+                required
+                pattern="[a-zA-Z0-9._-]+"
+            /></label>
+          </div>
+          <label
+            >{{ vm.form().id ? 'Новый пароль (оставьте пустым, чтобы сохранить)' : 'Пароль'
+            }}<input
+              name="password"
+              type="password"
+              [ngModel]="vm.form().password"
+              (ngModelChange)="vm.patchForm(['password'], $event)"
+              minlength="10"
+              [required]="!vm.form().id"
+              autocomplete="new-password" /></label
+          ><label
+            >Роль<select
+              name="role"
+              [ngModel]="vm.form().role"
+              (ngModelChange)="vm.patchForm(['role'], $event)"
+            >
+              @if (vm.actor()?.role === 'superuser') {
+                <option value="superuser">Суперпользователь</option>
+                <option value="community_admin">Администратор сообщества</option>
+              }
+              <option value="tournament_admin">Администратор турнира</option>
+              <option value="secretary">Секретарь</option>
+            </select></label
+          ><label class="check-label"
+            ><input
+              name="active"
+              type="checkbox"
+              [ngModel]="vm.form().active"
+              (ngModelChange)="vm.patchForm(['active'], $event)"
+            />Учётная запись активна</label
+          >
+          <h3>Назначения на турниры</h3>
+          @for (t of vm.work().tournaments; track t.id) {
+            <label class="check-label"
+              ><input
+                type="checkbox"
+                [checked]="vm.form().tournamentIds.includes(t.id)"
+                (change)="vm.toggleList(vm.form().tournamentIds, t.id, $any($event.target).checked)"
+              />{{ t.name }}</label
+            >
+          }
+        }
+        @if (vm.modal() === 'schedule') {
+          <p class="muted">
+            {{
+              vm.form().isMatch
+                ? 'Перенос выбранного матча.'
+                : 'Создание пар по
+        числу кругов. По четыре матча в игровой день, с интервалом в неделю.'
+            }}
+          </p>
+          <label
+            >Дата и время (МСК)<input
+              type="datetime-local"
+              name="start"
+              [ngModel]="vm.form().startsAt"
+              (ngModelChange)="vm.patchForm(['startsAt'], $event)"
+              [required]="!vm.form().isMatch" /></label
+          ><label
+            >Площадка<input
+              name="venue"
+              [ngModel]="vm.form().venue"
+              (ngModelChange)="vm.patchForm(['venue'], $event)"
+              required /></label
+          ><label
+            >Занятость площадки, минут<input
+              type="number"
+              name="slot"
+              min="60"
+              max="300"
+              [ngModel]="vm.form().slotMinutes"
+              (ngModelChange)="vm.patchForm(['slotMinutes'], $event)"
+              required
+          /></label>
+          <p class="muted">Пересечения команд и площадок проверяются на сервере.</p>
+        }
+        @if (vm.modal() === 'calendar') {
+          <p class="calendar-editor-intro">
+            <b>{{ vm.form().tournamentName }}</b
+            ><br />Сверьте игры с бумажным календарём: меняйте тур, дату, время и площадку. Все
+            правки сохраняются вместе. Время московское.
+          </p>
+          <label class="calendar-group-select"
+            >Тур / этап до изменений<select
+              aria-label="Тур / этап"
+              name="calendarGroup"
+              [ngModel]="vm.form().groupKey"
+              (ngModelChange)="
+                vm.patchForm(['groupKey'], $event);
+                vm.patchForm(['bulkDate'], '');
+                vm.patchForm(['bulkVenue'], '')
+              "
+            >
+              <option value="all">Все матчи турнира</option>
+              @for (group of vm.calendarGroups(); track group.key) {
+                <option [ngValue]="group.key">
+                  {{ group.label }} · матчей к проведению: {{ group.pending }}
+                </option>
+              }
+            </select></label
+          >
+          <p class="calendar-move-hint">
+            Для переноса измените поле «Тур» у матча. Можно указать новый номер тура. До сохранения
+            игра останется в исходной группе.
+          </p>
+          @if (vm.form().groupKey !== 'all') {
+            <div class="calendar-bulk">
+              <label
+                >Дата для выбранных игр<input
+                  type="date"
+                  name="calendarBulkDate"
+                  [ngModel]="vm.form().bulkDate"
+                  (ngModelChange)="vm.patchForm(['bulkDate'], $event)"
+              /></label>
+              <label
+                >Площадка для выбранных игр<input
+                  name="calendarBulkVenue"
+                  [ngModel]="vm.form().bulkVenue"
+                  (ngModelChange)="vm.patchForm(['bulkVenue'], $event)"
+                  maxlength="200"
+                  placeholder="Без изменения"
+              /></label>
+              <button
+                class="btn secondary compact"
+                type="button"
+                (click)="vm.applyCalendarBulk()"
+                [disabled]="!vm.form().bulkDate && !vm.form().bulkVenue.trim()"
+              >
+                Применить к выбранным играм
+              </button>
+            </div>
+          }
+          <div class="calendar-edit-list">
+            @for (r of vm.calendarRows(); track r.id) {
+              <div
+                class="calendar-edit-row"
+                [class.calendar-row-locked]="r.status !== 'scheduled'"
+                [class.calendar-row-moved]="r.stage === 'regular' && r.round !== r.expected.round"
+              >
+                <div class="calendar-edit-teams">
+                  <small
+                    >Матч #{{ r.id }} ·
+                    {{
+                      r.stage === 'regular'
+                        ? 'Тур ' + r.expected.round
+                        : 'Плей-офф · серия ' + r.expected.round
+                    }}</small
+                  ><b>{{ vm.teamName(r.homeTeamId) }} — {{ vm.teamName(r.awayTeamId) }}</b>
+                  @if (r.status !== 'scheduled') {
+                    <span class="badge green">{{
+                      r.status === 'completed'
+                        ? 'Протокол опубликован'
+                        : 'Матч
+              отменён'
+                    }}</span>
+                  }
+                  @if (r.stage === 'regular' && r.round !== r.expected.round) {
+                    <span class="badge calendar-move-badge"
+                      >Перенос: тур {{ r.expected.round }} → {{ r.round || '…' }}</span
+                    >
+                  }
+                </div>
+                <label
+                  >Тур / серия<input
+                    type="number"
+                    [name]="'calendar-round-' + r.id"
+                    [attr.aria-label]="'Тур матча №' + r.id"
+                    [ngModel]="r.round"
+                    (ngModelChange)="vm.patchFormItem(r, { round: $event })"
+                    min="1"
+                    max="1000"
+                    step="1"
+                    required
+                    [disabled]="r.status !== 'scheduled' || r.stage !== 'regular'"
+                /></label>
+                <label class="calendar-edit-date"
+                  >Дата и время (МСК)<input
+                    type="datetime-local"
+                    [name]="'calendar-start-' + r.id"
+                    [ngModel]="r.startsAt"
+                    (ngModelChange)="vm.patchFormItem(r, { startsAt: $event })"
+                    [disabled]="r.status !== 'scheduled'"
+                /></label>
+                <label class="calendar-edit-venue"
+                  >Площадка<input
+                    [name]="'calendar-venue-' + r.id"
+                    [ngModel]="r.venue"
+                    (ngModelChange)="vm.patchFormItem(r, { venue: $event })"
+                    maxlength="200"
+                    required
+                    [disabled]="r.status !== 'scheduled'"
+                /></label>
+                <label
+                  >Слот, минут<input
+                    type="number"
+                    [name]="'calendar-slot-' + r.id"
+                    [ngModel]="r.slotMinutes"
+                    (ngModelChange)="vm.patchFormItem(r, { slotMinutes: $event })"
+                    min="60"
+                    max="300"
+                    required
+                    [disabled]="r.status !== 'scheduled'"
+                /></label>
+              </div>
+            }
+          </div>
+          <p class="calendar-editor-note">
+            Номер тура не меняет дату игры — при необходимости измените оба поля. Проверим занятость
+            команд и площадок во всех турнирах. При пересечении ни один матч не будет изменён. Игры
+            плей-офф сохраняют свою серию.
+          </p>
+        }
+        @if (vm.modal() === 'playoff') {
+          <p>
+            Участники определяются по опубликованной итоговой таблице. Все матчи регулярки должны
+            быть завершены.
+          </p>
+          <label
+            >Команд в сетке<select
+              name="size"
+              [ngModel]="vm.form().size"
+              (ngModelChange)="vm.patchForm(['size'], $event)"
+            >
+              <option [ngValue]="2">2 команды · финал</option>
+              <option [ngValue]="4">4 команды · полуфинал</option>
+              <option [ngValue]="8">8 команд · четвертьфинал</option>
+            </select></label
+          >
+          <p class="muted">Матчи серий создаются автоматически, даты назначаются отдельно.</p>
+        }
+        @if (vm.modal() === 'settings') {
+          <label
+            >Название сообщества<input
+              name="name"
+              [ngModel]="vm.form().name"
+              (ngModelChange)="vm.patchForm(['name'], $event)"
+              required /></label
+          ><label
+            >Короткое название<input
+              name="short"
+              [ngModel]="vm.form().shortName"
+              (ngModelChange)="vm.patchForm(['shortName'], $event)"
+              required
+              maxlength="20" /></label
+          ><label
+            >Город<input
+              name="city"
+              [ngModel]="vm.form().city"
+              (ngModelChange)="vm.patchForm(['city'], $event)"
+              required /></label
+          ><label
+            >Контактный email<input
+              name="email"
+              type="email"
+              [ngModel]="vm.form().email"
+              (ngModelChange)="vm.patchForm(['email'], $event)" /></label
+          ><label
+            >Описание<textarea
+              name="description"
+              [ngModel]="vm.form().description"
+              (ngModelChange)="vm.patchForm(['description'], $event)"
+              rows="4"
+            ></textarea>
+          </label>
+        }
+        @if (vm.modal() === 'news') {
+          <label
+            >Заголовок<input
+              name="title"
+              [ngModel]="vm.form().title"
+              (ngModelChange)="vm.patchForm(['title'], $event)"
+              required /></label
+          ><label
+            >Раздел<input
+              name="category"
+              [ngModel]="vm.form().category"
+              (ngModelChange)="vm.patchForm(['category'], $event)"
+              required /></label
+          ><label
+            >Текст<textarea
+              name="body"
+              [ngModel]="vm.form().body"
+              (ngModelChange)="vm.patchForm(['body'], $event)"
+              rows="8"
+              required
+            ></textarea></label
+          ><label class="check-label"
+            ><input
+              name="published"
+              type="checkbox"
+              [ngModel]="vm.form().published"
+              (ngModelChange)="vm.patchForm(['published'], $event)"
+            />Опубликовано</label
+          >
+        }
+        @if (vm.modal() === 'season') {
+          <label
+            >Название<input
+              name="name"
+              [ngModel]="vm.form().name"
+              (ngModelChange)="vm.patchForm(['name'], $event)"
+              required
+          /></label>
+          <div class="form-grid">
+            <label
+              >Начало<input
+                name="start"
+                type="date"
+                [ngModel]="vm.form().startsOn"
+                (ngModelChange)="vm.patchForm(['startsOn'], $event)"
+                required /></label
+            ><label
+              >Окончание<input
+                name="end"
+                type="date"
+                [ngModel]="vm.form().endsOn"
+                (ngModelChange)="vm.patchForm(['endsOn'], $event)"
+                required
+            /></label>
+          </div>
+        }
+        @if (vm.modal() === 'staff') {
+          <p class="muted">
+            Секретари получат доступ к составам и протоколам только этого турнира.
+          </p>
+          @for (u of vm.form().secretaries; track u.id) {
+            <label class="check-label"
+              ><input
+                type="checkbox"
+                [checked]="vm.form().secretaryIds.includes(u.id)"
+                (change)="vm.toggleList(vm.form().secretaryIds, u.id, $any($event.target).checked)"
+              />{{ u.displayName }} · {{ u.username }}</label
+            >
+          } @empty {
+            <p class="muted">Администратор сообщества пока не создал учётные записи секретарей.</p>
+          }
+        }
+        <div class="modal-actions">
+          @if (vm.modal() === 'calendar') {
+            <span class="schedule-change-count"
+              >Изменено матчей: {{ vm.calendarChangeCount() }}</span
+            >
+          }
+          <button
+            type="button"
+            class="btn secondary"
+            (click)="vm.closeModal()"
+            [disabled]="vm.busy()"
+          >
+            Отмена
+          </button>
+          @if (vm.modal() === 'delete-player') {
+            @if (vm.form().canDelete) {
+              <button
+                type="submit"
+                class="btn delete-player-button filled"
+                [disabled]="vm.busy() || !vm.form().confirmed"
+              >
+                {{ vm.busy() ? 'Удаляем…' : 'Удалить из системы' }}
+              </button>
+            }
+          } @else {
+            <button
+              type="submit"
+              class="btn primary"
+              [disabled]="
+                vm.busy() ||
+                (vm.modal() === 'calendar' && !vm.calendarChangeCount()) ||
+                (vm.modal() === 'player' &&
+                  (vm.playerIdentityPending() ||
+                    vm.playerIdentityBlocked() ||
+                    !!vm.playerIdentityError()))
+              "
+            >
+              {{
+                vm.busy()
+                  ? 'Сохраняем…'
+                  : vm.modal() === 'login'
+                    ? 'Войти ↗'
+                    : vm.modal() === 'playoff'
+                      ? 'Создать плей-офф →'
+                      : vm.modal() === 'calendar'
+                        ? 'Сохранить календарь →'
+                        : 'Сохранить →'
+              }}
+            </button>
+          }
+        </div>
+      </form>
+    </section>
+  </div>
+}

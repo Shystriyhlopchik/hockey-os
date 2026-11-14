@@ -1,0 +1,14 @@
+<div class="toolbar">
+  <button class="btn primary" (click)="vm.open('news')">+ Добавить новость</button>
+</div>
+<div class="news-grid">
+  @for (n of vm.work().news; track n.id) {
+    <article class="panel">
+      <span class="eyebrow">{{ n.category }}</span>
+      <h2>{{ n.title }}</h2>
+      <p>{{ n.body }}</p>
+      <button class="btn secondary compact" (click)="vm.open('news', n)">Редактировать</button
+      ><span class="badge">{{ n.published ? 'Опубликовано' : 'Черновик' }}</span>
+    </article>
+  }
+</div>

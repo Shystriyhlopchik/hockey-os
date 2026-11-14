@@ -1,0 +1,166 @@
+<div class="public-filter">
+  @if (vm.route() !== 'calendar') {
+    <label class="tournament-label"
+      >Турнир<select
+        [ngModel]="vm.tournament()?.id"
+        (ngModelChange)="vm.selectTournament($event)"
+        aria-label="Турнир"
+        [disabled]="!vm.tournaments().length"
+      >
+        @for (t of vm.tournaments(); track t.id) {
+          <option [ngValue]="t.id">{{ t.name }}</option>
+        }
+      </select></label
+    >
+  }
+  <label class="season-label"
+    >Сезон<select
+      class="season-select"
+      [ngModel]="vm.seasonId()"
+      (ngModelChange)="vm.selectSeason($event)"
+      aria-label="Сезон"
+    >
+      <option [ngValue]="0">Все сезоны</option>
+      @for (s of vm.data().seasons; track s.id) {
+        <option [ngValue]="s.id">{{ s.name }}</option>
+      }
+    </select></label
+  >
+</div>
+
+@if (vm.player(); as selectedPlayer) {
+  <section class="content-section">
+    <a class="back-link" routerLink="/players">← Статистика игроков</a>
+    <div class="profile-hero">
+      <span class="player-portrait"
+        >{{ selectedPlayer.lastName.slice(0, 1) }}{{ selectedPlayer.firstName.slice(0, 1) }}</span
+      >
+      <div>
+        <span class="eyebrow">{{ vm.positions[selectedPlayer.position] }}</span>
+        <h1>{{ selectedPlayer.name }}</h1>
+        <p>
+          {{ vm.qualifications[selectedPlayer.qualification] }} · {{ selectedPlayer.birthYear }} г.
+          р.
+        </p>
+      </div>
+    </div>
+    <h2>Статистика по турнирам</h2>
+    <p class="muted">
+      Одна карточка игрока для всех лиг. Игры, шайбы и передачи учитываются отдельно в каждой лиге и
+      команде.
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Турнир / команда</th>
+            <th>И</th>
+            <th>Ш</th>
+            <th>П</th>
+            <th>О</th>
+            <th>Штр</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (s of vm.data().stats; track $index) {
+            @if (s.playerId === selectedPlayer.id) {
+              <tr>
+                <td>
+                  {{ vm.teamName(s.teamId) }}<small>{{ vm.tournamentName(s.tournamentId) }}</small>
+                </td>
+                <td>{{ s.games }}</td>
+                <td>{{ s.goals }}</td>
+                <td>{{ s.assists }}</td>
+                <td class="points">{{ s.points }}</td>
+                <td>{{ s.penaltyMinutes }}</td>
+              </tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+} @else {
+  <section class="content-section">
+    <div class="section-heading">
+      <div>
+        <span class="eyebrow">КАЖДАЯ ПЕРЕДАЧА ИМЕЕТ ЗНАЧЕНИЕ</span>
+        <h1>Люди и цифры<span class="accent-dot">.</span></h1>
+      </div>
+      <span class="muted">По опубликованным протоколам</span>
+    </div>
+    <div class="toolbar">
+      <input
+        class="search"
+        [ngModel]="vm.search()"
+        (ngModelChange)="vm.search.set($event)"
+        placeholder="Фамилия или имя…"
+        aria-label="Найти игрока"
+      /><select
+        [ngModel]="vm.positionFilter()"
+        (ngModelChange)="vm.positionFilter.set($event)"
+        aria-label="Амплуа"
+      >
+        <option value="all">Все амплуа</option>
+        <option value="F">Нападающие</option>
+        <option value="D">Защитники</option>
+        <option value="G">Вратари</option></select
+      ><select
+        [ngModel]="vm.teamFilter()"
+        (ngModelChange)="vm.teamFilter.set($event)"
+        aria-label="Команда"
+      >
+        <option [ngValue]="0">Все команды</option>
+        @for (t of vm.tournamentTeams(); track t.id) {
+          <option [ngValue]="t.id">{{ t.name }}</option>
+        }
+      </select>
+    </div>
+    <div class="table-wrap">
+      <table class="player-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Игрок</th>
+            <th>Команда</th>
+            <th>И</th>
+            <th>Ш</th>
+            <th>П</th>
+            <th>О</th>
+            <th>Штр</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (p of vm.stats(); track $index; let i = $index) {
+            <tr>
+              <td>{{ i + 1 }}</td>
+              <td>
+                <a [routerLink]="'/players/' + p.playerId"
+                  ><span class="mini-avatar">{{ p.name.slice(0, 1) }}</span
+                  ><span
+                    ><b>{{ p.name }}</b
+                    ><small>{{ vm.positions[p.position] }}</small></span
+                  ></a
+                >
+              </td>
+              <td>{{ vm.teamName(p.teamId) }}</td>
+              <td>{{ p.games }}</td>
+              <td>{{ p.goals }}</td>
+              <td>{{ p.assists }}</td>
+              <td class="points">{{ p.points }}</td>
+              <td>{{ p.penaltyMinutes }}</td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="8" class="empty">По этим фильтрам статистики пока нет.</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    <p class="table-note">
+      И — фактическое участие · Ш — шайбы · П — голевые передачи · О — шайбы + передачи · Штр —
+      штрафные минуты
+    </p>
+  </section>
+}

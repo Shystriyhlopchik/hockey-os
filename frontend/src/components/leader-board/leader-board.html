@@ -1,0 +1,27 @@
+<section class="leader-board">
+  <h3>{{ title() }}</h3>
+  @if (first(); as leader) {
+    <a class="leader-feature" [routerLink]="'/players/' + leader.playerId"
+      ><span class="player-number">{{ leader[metric()] }}</span
+      ><span class="player-monogram" aria-hidden="true">{{ initials(leader.name) }}</span
+      ><span class="player-caption"
+        >{{ team(leader.teamId)?.name }}<b>{{ leader.name }}</b></span
+      ></a
+    >
+    <ol>
+      @for (row of leaders(); track row.playerId; let i = $index) {
+        <li>
+          <a [routerLink]="'/players/' + row.playerId"
+            ><span>{{ i + 1 }}</span
+            ><app-team-badge [team]="team(row.teamId)" size="sm" /><span class="leader-name">{{
+              row.name
+            }}</span
+            ><b>{{ row[metric()] }}</b></a
+          >
+        </li>
+      }
+    </ol>
+  } @else {
+    <p class="empty">Показатели появятся после публикации протоколов.</p>
+  }
+</section>

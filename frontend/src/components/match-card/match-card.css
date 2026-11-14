@@ -1,0 +1,105 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+.match-card {
+  display: block;
+  background: var(--surface);
+  padding: 18px 22px 14px;
+  border: 1px solid var(--border);
+  transition:
+    border-color 0.2s,
+    transform 0.2s;
+  color: var(--text);
+  height: 100%;
+}
+.match-card:hover {
+  border-color: #5b3338;
+  transform: translateY(-3px);
+}
+.match-meta {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 10px;
+  color: var(--muted);
+}
+.round {
+  margin-left: auto;
+  color: #747c86;
+}
+.match-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 100%;
+  background: var(--accent);
+}
+.match-dot.finished {
+  background: #747c86;
+}
+.match-date {
+  font:
+    500 17px Oswald,
+    sans-serif;
+  margin-top: 10px;
+  text-align: center;
+}
+.match-date span {
+  color: #a4aab2;
+  font-size: 14px;
+}
+.match-teams {
+  display: grid;
+  grid-template-columns: 1fr 70px 1fr;
+  align-items: center;
+  gap: 9px;
+  margin: 18px 0;
+}
+.match-teams > div {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  gap: 11px;
+  min-width: 0;
+}
+.match-teams b {
+  font:
+    400 15px Oswald,
+    sans-serif;
+  text-align: center;
+}
+.match-center strong {
+  font:
+    500 33px Oswald,
+    sans-serif;
+  white-space: nowrap;
+}
+.match-center small {
+  font:
+    400 9px Play,
+    sans-serif;
+  text-transform: uppercase;
+  color: var(--muted);
+  text-align: center;
+}
+.match-venue {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  font-size: 9px;
+  color: #848c96;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+.match-venue > span:last-child {
+  margin-left: auto;
+  color: #6c737e;
+}
+.match-venue > span:first-child {
+  color: var(--accent);
+}
+@media (prefers-reduced-motion: reduce) {
+  .match-card {
+    transition: none;
+  }
+}

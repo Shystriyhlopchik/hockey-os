@@ -1,0 +1,127 @@
+<div class="public-filter">
+  @if (vm.route() !== 'calendar') {
+    <label class="tournament-label"
+      >Турнир<select
+        [ngModel]="vm.tournament()?.id"
+        (ngModelChange)="vm.selectTournament($event)"
+        aria-label="Турнир"
+        [disabled]="!vm.tournaments().length"
+      >
+        @for (t of vm.tournaments(); track t.id) {
+          <option [ngValue]="t.id">{{ t.name }}</option>
+        }
+      </select></label
+    >
+  }
+  <label class="season-label"
+    >Сезон<select
+      class="season-select"
+      [ngModel]="vm.seasonId()"
+      (ngModelChange)="vm.selectSeason($event)"
+      aria-label="Сезон"
+    >
+      <option [ngValue]="0">Все сезоны</option>
+      @for (s of vm.data().seasons; track s.id) {
+        <option [ngValue]="s.id">{{ s.name }}</option>
+      }
+    </select></label
+  >
+</div>
+
+@if (vm.winners().length) {
+  <section class="podium">
+    @for (w of vm.winners(); track w.place) {
+      <div>
+        <span class="eyebrow">{{
+          w.place === 1 ? 'ЧЕМПИОН' : w.place === 2 ? 'СЕРЕБРО' : 'БРОНЗА'
+        }}</span
+        ><app-team-badge [team]="vm.teamById(w.teamId)" size="lg" />
+        <h2>{{ vm.teamName(w.teamId) }}</h2>
+        <small>{{ w.place }} место · {{ vm.seasonName() }}</small>
+      </div>
+    }
+  </section>
+}
+<section class="content-section">
+  <div class="section-heading">
+    <div>
+      <span class="eyebrow">{{ vm.tournament()?.division }} · СЕЗОН 2026 / 2027</span>
+      <h1>{{ vm.tournament()?.name }}</h1>
+      <p class="muted">{{ vm.tournament()?.description }}</p>
+    </div>
+    <a class="btn secondary" routerLink="/regulations">Регламент ↗</a>
+  </div>
+  <div class="metric-grid">
+    <div>
+      <span>Команд</span><b>{{ vm.tournamentTeams().length }}</b>
+    </div>
+    <div>
+      <span>Сыграно</span><b>{{ vm.completed() }}</b>
+    </div>
+    <div>
+      <span>Заброшено шайб</span><b>{{ vm.totalGoals() }}</b>
+    </div>
+    <div>
+      <span>Формат</span
+      ><b class="format-value"
+        >{{ vm.tournament()?.rules?.periods }} × {{ vm.tournament()?.rules?.periodMinutes }}</b
+      >
+    </div>
+  </div>
+  <h2>Регулярный этап</h2>
+  <app-standings-table [rows]="vm.standings()" />
+  <p class="table-note">
+    Победа — {{ vm.tournament()?.rules?.pointsWin }} очка · ничья —
+    {{ vm.tournament()?.rules?.pointsDraw }} · поражение — {{ vm.tournament()?.rules?.pointsLoss }}.
+    Критерии равенства задаются регламентом.
+  </p>
+  <div class="section-heading bracket-heading">
+    <div>
+      <span class="eyebrow">ПУТЬ К КУБКУ</span>
+      <h2>Плей-офф</h2>
+    </div>
+  </div>
+  @if (vm.series().length) {
+    <div class="bracket">
+      @for (
+        round of [
+          ['quarter', '¼ финала'],
+          ['semi', '½ финала'],
+          ['final', 'Финал'],
+        ];
+        track round[0]
+      ) {
+        <div>
+          <h3>{{ round[1] }}</h3>
+          @for (s of vm.series(); track s.id) {
+            @if (s.round === round[0]) {
+              <section class="series-card">
+                <small>ДО {{ s.winsRequired }} ПОБЕД</small>
+                <div [class.series-winner]="s.winnerId === s.team1Id">
+                  <span>{{ vm.teamName(s.team1Id) }}</span
+                  ><b>{{ s.wins1 }}</b>
+                </div>
+                <div [class.series-winner]="s.winnerId === s.team2Id">
+                  <span>{{ vm.teamName(s.team2Id) }}</span
+                  ><b>{{ s.wins2 }}</b>
+                </div>
+                <small>{{
+                  s.status === 'completed'
+                    ? 'Серия завершена'
+                    : s.status === 'active'
+                      ? 'Серия идёт'
+                      : 'Ожидаем участников'
+                }}</small>
+              </section>
+            }
+          }
+        </div>
+      }
+    </div>
+  } @else {
+    <div class="empty panel">
+      <h3>Кубок ждёт своих претендентов</h3>
+      <p>Сетка появится после завершения регулярного этапа.</p>
+    </div>
+  }
+</section>

@@ -1,0 +1,49 @@
+<div class="toolbar">
+  @if (vm.canGlobal()) {
+    <button class="btn primary" (click)="vm.open('tournament')">+ Создать турнир</button
+    ><button class="btn secondary" (click)="vm.open('season')">+ Сезон</button>
+  }
+</div>
+<div class="tournament-grid">
+  @for (t of vm.tournaments(); track t.id) {
+    <section class="panel tournament-card">
+      <span class="eyebrow"
+        >{{ t.division }} ·
+        {{
+          t.status === 'draft' ? 'ЧЕРНОВИК' : t.status === 'completed' ? 'ЗАВЕРШЁН' : 'ИДЁТ СЕЗОН'
+        }}</span
+      >
+      <h2>{{ t.name }}</h2>
+      <p>{{ t.description }}</p>
+      <div class="tournament-spec">
+        <span>{{ t.teamIds.length }} команд</span
+        ><span>{{ t.rules.periods }} × {{ t.rules.periodMinutes }} мин</span
+        ><span>{{ t.rules.rounds }} круга</span>
+      </div>
+      <div class="button-row">
+        <button class="btn secondary compact" (click)="vm.open('tournament', t)">Настройки</button
+        ><button class="btn secondary compact" (click)="vm.open('staff', t)">Секретари</button>
+        @if (vm.hasEditableSchedule(t.id)) {
+          <button class="btn secondary compact" (click)="vm.open('calendar', t)">
+            Редактировать календарь
+          </button>
+        }
+        @if (t.status === 'draft') {
+          @if (!vm.hasTournamentMatches(t.id)) {
+            <button
+              class="btn secondary compact"
+              (click)="vm.selectTournament(t.id); vm.open('schedule')"
+            >
+              Сформировать календарь
+            </button>
+          }
+          <button class="btn primary compact" (click)="vm.launchTournament(t)">Запустить →</button>
+        } @else {
+          <a class="btn secondary compact" [routerLink]="'/tournaments/' + t.id"
+            >Публичная страница ↗</a
+          >
+        }
+      </div>
+    </section>
+  }
+</div>

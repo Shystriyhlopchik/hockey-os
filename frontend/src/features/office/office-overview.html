@@ -1,0 +1,51 @@
+<div class="office-welcome">
+  <div>
+    <span class="eyebrow">{{
+      vm.tournament()?.status === 'draft'
+        ? 'ПОДГОТОВКА'
+        : 'СЕЗОН В
+      ИГРЕ'
+    }}</span>
+    <h2>{{ vm.tournament()?.name || 'Создайте первый турнир' }}</h2>
+    <p>Выберите матч, подготовьте составы и заполните протокол после игры.</p>
+    <a class="btn primary" routerLink="/office/matches">К матчам и протоколам →</a>
+  </div>
+  <div class="rink-mini">
+    <i></i><b>3 × {{ vm.tournament()?.rules?.periodMinutes || 15 }}</b
+    ><span>МИНУТ НА ЛЬДУ</span>
+  </div>
+</div>
+<div class="metric-grid">
+  <div>
+    <span>Команды</span><b>{{ vm.tournamentTeams().length }}</b
+    ><small>в текущем турнире</small>
+  </div>
+  <div>
+    <span>Сыграно матчей</span><b>{{ vm.completed() }}</b
+    ><small>с официальным результатом</small>
+  </div>
+  <div>
+    <span>В календаре</span><b>{{ vm.matches().length - vm.completed() }}</b
+    ><small>ожидают протокола</small>
+  </div>
+  <div>
+    <span>Заброшено шайб</span><b>{{ vm.totalGoals() }}</b
+    ><small>по итогам матчей</small>
+  </div>
+</div>
+<div class="section-heading">
+  <h2>Следующие матчи</h2>
+  <a routerLink="/office/matches">Все матчи ↗</a>
+</div>
+<div class="office-match-list">
+  @for (match of vm.upcoming(); track match.id) {
+    <app-match-row
+      [match]="match"
+      [teams]="vm.work().teams"
+      [tournamentName]="vm.tournamentName(match.tournamentId)"
+      [office]="true"
+    />
+  } @empty {
+    <div class="empty">Предстоящих игр пока нет.</div>
+  }
+</div>

@@ -1,0 +1,26 @@
+<a class="match-card" [routerLink]="(office() ? '/office/protocol/' : '/matches/') + match().id">
+  <div class="match-meta">
+    <span class="match-dot" [class.finished]="match().status === 'completed'"></span
+    >{{ tournamentName() }}<span class="round">Тур {{ match().round }}</span>
+  </div>
+  <div class="match-date">
+    {{ date(match().startsAt) }} <span>· {{ time(match().startsAt) }} МСК</span>
+  </div>
+  <div class="match-teams">
+    <div>
+      <app-team-badge [team]="home()" /><b>{{ home()?.name || 'Хозяева' }}</b>
+    </div>
+    <div class="match-center">
+      <strong>{{
+        match().status === 'completed' ? match().homeScore + ' : ' + match().awayScore : 'VS'
+      }}</strong
+      ><small>{{ match().status === 'completed' ? 'Матч окончен' : 'Начало матча' }}</small>
+    </div>
+    <div>
+      <app-team-badge [team]="away()" /><b>{{ away()?.name || 'Гости' }}</b>
+    </div>
+  </div>
+  <div class="match-venue">
+    <span aria-hidden="true">⌖</span> {{ match().venue }}<span aria-hidden="true">↗</span>
+  </div>
+</a>

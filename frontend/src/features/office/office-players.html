@@ -1,0 +1,112 @@
+<div class="toolbar">
+  <input
+    class="search"
+    [ngModel]="vm.search()"
+    (ngModelChange)="vm.search.set($event)"
+    placeholder="Фамилия или имя…"
+    aria-label="Поиск игрока"
+  />
+  @if (vm.canDeletePlayers()) {
+    <select
+      [ngModel]="vm.playerListScope()"
+      (ngModelChange)="vm.playerListScope.set($event); vm.teamFilter.set(0)"
+      aria-label="Список игроков"
+    >
+      <option value="tournament">Выбранный турнир</option>
+      <option value="all">Вся система</option>
+      <option value="unregistered">Без действующей заявки</option>
+    </select>
+  }
+  @if (!vm.canDeletePlayers() || vm.playerListScope() === 'tournament') {
+    <select
+      [ngModel]="vm.teamFilter()"
+      (ngModelChange)="vm.teamFilter.set($event)"
+      aria-label="Команда"
+    >
+      <option [ngValue]="0">Все команды</option>
+      @for (t of vm.tournamentTeams(); track t.id) {
+        <option [ngValue]="t.id">{{ t.name }}</option>
+      }
+    </select>
+  }
+  <button class="btn primary" (click)="vm.open('player')">+ Хоккеист</button>
+</div>
+@if (vm.canDeletePlayers() && vm.playerListScope() !== 'tournament') {
+  <p class="muted player-registry-note">
+    {{
+      vm.playerListScope() === 'all'
+        ? 'Общий реестр: игроки всех лиг и сезонов,
+  включая карточки без заявки.'
+        : 'Карточки без действующей заявки во всех лигах
+  и сезонах.'
+    }}
+    Найдено: {{ vm.players().length }}.
+  </p>
+}
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Игрок</th>
+        <th>Дата рождения</th>
+        <th>Амплуа</th>
+        <th>Квалификация</th>
+        <th>Допуск</th>
+        <th>Действия</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (p of vm.players(); track p.id) {
+        <tr>
+          <td>
+            <b>{{ p.name }}</b
+            ><small
+              >{{ vm.playerAffiliation(p.id) }}
+              @if (vm.canDeletePlayers()) {
+                · Карточка № {{ p.id }}
+              }
+            </small>
+          </td>
+          <td>{{ p.birthDate }}</td>
+          <td>{{ vm.positions[p.position] }}</td>
+          <td>{{ vm.qualifications[p.qualification] }}</td>
+          <td>
+            <span class="badge" [class.green]="p.medicallyCleared">{{
+              p.medicallyCleared
+                ? 'Меддопуск есть'
+                : 'Проверить
+            допуск'
+            }}</span
+            ><small>{{
+              p.insured
+                ? 'Страховка отмечена'
+                : 'Страховка не
+            отмечена'
+            }}</small>
+          </td>
+          <td>
+            <div class="player-row-actions">
+              <button class="btn compact secondary" (click)="vm.open('player', p)">Изменить</button>
+              @if (vm.canDeletePlayers()) {
+                <button
+                  class="btn compact delete-player-button"
+                  [disabled]="vm.busy()"
+                  (click)="vm.openPlayerDeletion(p)"
+                  [attr.aria-label]="'Удалить игрока ' + p.name"
+                >
+                  Удалить
+                </button>
+              }
+            </div>
+          </td>
+        </tr>
+      } @empty {
+        <tr>
+          <td colspan="6" class="empty">
+            Хоккеисты не найдены. Проверьте выбранный список и поиск.
+          </td>
+        </tr>
+      }
+    </tbody>
+  </table>
+</div>

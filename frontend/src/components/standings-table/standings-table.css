@@ -1,0 +1,70 @@
+:host {
+  display: block;
+}
+.standings {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 4px;
+  text-align: center;
+}
+.standings th {
+  padding: 8px 12px;
+  color: var(--muted);
+  font:
+    400 11px Oswald,
+    sans-serif;
+  text-transform: uppercase;
+}
+.standings th:nth-child(2) {
+  text-align: left;
+}
+.standings td {
+  padding: 10px 12px;
+  background: var(--surface-raised);
+  font-size: 13px;
+  border: 0;
+}
+.standings td:nth-child(2) {
+  text-align: left;
+}
+.standings td:nth-child(2) a {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.standings b {
+  font:
+    400 15px Oswald,
+    sans-serif;
+}
+.rank {
+  color: #8a929d;
+}
+.rank.leading {
+  color: var(--accent);
+}
+.points {
+  font-weight: 700;
+}
+.compact td {
+  padding: 8px 12px;
+}
+.standings small {
+  font-size: 10px;
+  color: var(--muted);
+  display: block;
+}
+.compact {
+  min-width: 0;
+}
+@media (max-width: 640px) {
+  .standings:not(.compact) {
+    min-width: 650px;
+  }
+  .standings td {
+    padding: 9px 10px;
+  }
+  .standings b {
+    font-size: 14px;
+  }
+}

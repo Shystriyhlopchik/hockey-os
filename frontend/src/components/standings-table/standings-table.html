@@ -1,0 +1,54 @@
+<div class="table-wrap">
+  <table class="standings" [class.compact]="compact()">
+    <caption class="sr-only">
+      Турнирная таблица
+    </caption>
+    <thead>
+      <tr>
+        <th scope="col">№</th>
+        <th scope="col">Команда</th>
+        <th scope="col">И</th>
+        @if (!compact()) {
+          <th scope="col">В</th>
+          <th scope="col">Н</th>
+          <th scope="col">П</th>
+          <th scope="col">Шайбы</th>
+          <th scope="col">Разница</th>
+        }
+        <th scope="col">О</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (row of rows(); track row.teamId) {
+        <tr>
+          <td>
+            <span class="rank" [class.leading]="row.position <= 3">{{ row.position }}</span>
+          </td>
+          <td>
+            <a [routerLink]="'/teams/' + row.teamId"
+              ><app-team-badge [team]="row" size="sm" /><b>{{ row.name }}</b></a
+            >
+            @if (row.tieNote) {
+              <small>{{ row.tieNote }}</small>
+            }
+          </td>
+          <td>{{ row.played }}</td>
+          @if (!compact()) {
+            <td>{{ row.wins }}</td>
+            <td>{{ row.draws }}</td>
+            <td>{{ row.losses }}</td>
+            <td>{{ row.goalsFor }} : {{ row.goalsAgainst }}</td>
+            <td>{{ row.difference > 0 ? '+' : '' }}{{ row.difference }}</td>
+          }
+          <td class="points">{{ row.points }}</td>
+        </tr>
+      } @empty {
+        <tr>
+          <td [attr.colspan]="compact() ? 4 : 9" class="empty">
+            Таблица появится после добавления команд.
+          </td>
+        </tr>
+      }
+    </tbody>
+  </table>
+</div>

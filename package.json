@@ -6,7 +6,7 @@
     "dev": "node scripts/dev.mjs",
     "start": "node backend/dist/main.js",
     "build": "pnpm --dir backend build && pnpm --dir frontend build",
-    "test": "pnpm --dir backend test",
+    "test": "pnpm --dir backend test && pnpm --dir frontend test",
     "test:integration": "node scripts/player-identity.integration.mjs && node scripts/player-deletion.integration.mjs && node scripts/integration.mjs",
     "db:up": "docker compose up -d database",
     "db:local": "node scripts/local-db.mjs",

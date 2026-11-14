@@ -1,0 +1,12 @@
+<section class="panel settings-summary">
+  <span class="eyebrow">ЕДИНСТВЕННОЕ СООБЩЕСТВО</span>
+  <h2>{{ vm.work().community.name }}</h2>
+  <p>{{ vm.work().community.description }}</p>
+  <dl>
+    <dt>Город</dt>
+    <dd>{{ vm.work().community.city }}</dd>
+    <dt>Контактный адрес</dt>
+    <dd>{{ vm.work().community.email }}</dd>
+  </dl>
+  <button class="btn primary" (click)="vm.open('settings')">Изменить данные</button>
+</section>

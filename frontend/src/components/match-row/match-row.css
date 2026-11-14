@@ -1,0 +1,130 @@
+:host {
+  display: block;
+}
+.match-row {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr) 170px;
+  gap: 25px;
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 20px 22px;
+  margin: 10px 0;
+}
+.match-row:hover {
+  border-color: #68404b;
+}
+.match-date {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.match-date > b {
+  font:
+    500 19px Oswald,
+    sans-serif;
+}
+.match-date > span {
+  font-size: 9px;
+  color: var(--muted);
+}
+.teams {
+  display: grid;
+  grid-template-columns: 1fr 95px 1fr;
+  align-items: center;
+  gap: 15px;
+}
+.teams > span {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.teams b {
+  font:
+    400 18px Oswald,
+    sans-serif;
+}
+.teams .away {
+  justify-content: flex-end;
+}
+.teams > strong {
+  font:
+    500 27px Oswald,
+    sans-serif;
+  text-align: center;
+  white-space: nowrap;
+  color: #b1bac6;
+}
+.teams > strong.played {
+  color: white;
+}
+.teams small {
+  font:
+    400 8px Play,
+    sans-serif;
+  color: #7b8796;
+  display: block;
+  margin-top: 4px;
+}
+.venue {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  text-align: right;
+  font-size: 10px;
+  color: var(--muted);
+}
+.venue small {
+  font-size: 9px;
+  color: #b5bfcc;
+}
+.venue b {
+  font-weight: 400;
+  color: var(--accent);
+  margin-left: 10px;
+}
+@media (max-width: 1000px) {
+  .match-row {
+    grid-template-columns: 130px minmax(0, 1fr);
+    gap: 20px;
+  }
+  .venue {
+    grid-column: 1/-1;
+    flex-direction: row;
+    justify-content: space-between;
+    text-align: left;
+    border-top: 1px solid var(--border);
+    padding-top: 12px;
+  }
+}
+@media (max-width: 600px) {
+  .match-row {
+    grid-template-columns: 1fr;
+    padding: 16px;
+    gap: 16px;
+  }
+  .match-date {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .match-date > b {
+    font-size: 17px;
+  }
+  .match-date > span {
+    font-size: 8px;
+  }
+  .teams {
+    gap: 10px;
+    grid-template-columns: 1fr 72px 1fr;
+  }
+  .teams b {
+    font-size: 16px;
+  }
+  .teams > span {
+    gap: 8px;
+  }
+  .teams > strong {
+    font-size: 24px;
+  }
+}

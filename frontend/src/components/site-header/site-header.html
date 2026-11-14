@@ -1,0 +1,51 @@
+<div class="topline">
+  <div>
+    <span><i></i> Чебоксары · Любительский хоккей</span><span>Сезон {{ season() }}</span>
+  </div>
+</div>
+<header class="site-header">
+  <a class="brand" routerLink="/" aria-label="На главную"
+    ><img
+      src="/branding/chhl-logo.png"
+      width="54"
+      height="54"
+      alt="Логотип Чебоксарской хоккейной лиги"
+    /><span><b>ЧЕБОКСАРСКАЯ</b><span>ХОККЕЙНАЯ ЛИГА</span></span></a
+  >
+  <nav aria-label="Основное меню" [class.open]="menuOpen()">
+    @for (link of links; track link.path) {
+      <a
+        [routerLink]="link.path"
+        routerLinkActive="active"
+        [routerLinkActiveOptions]="{ exact: link.path === '/' }"
+        (click)="menuOpen.set(false)"
+        >{{ link.label }}</a
+      >
+    }
+  </nav>
+  <div class="header-right">
+    @if (actor()) {
+      <a class="account" routerLink="/office" aria-label="Кабинет"
+        ><svg viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="7" r="3.5" />
+          <path d="M5 22v-3a7 7 0 0 1 14 0v3" /></svg
+        ><span>Кабинет</span></a
+      >
+    } @else {
+      <button class="account" (click)="login.emit()" aria-label="Войти в кабинет">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="7" r="3.5" />
+          <path d="M5 22v-3a7 7 0 0 1 14 0v3" /></svg
+        ><span>Войти</span>
+      </button>
+    }
+    <button
+      class="menu-toggle"
+      (click)="menuOpen.set(!menuOpen())"
+      [attr.aria-expanded]="menuOpen()"
+      aria-label="Основное меню"
+    >
+      ☰
+    </button>
+  </div>
+</header>

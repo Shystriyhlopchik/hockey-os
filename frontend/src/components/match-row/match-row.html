@@ -1,0 +1,37 @@
+<a class="match-row" [routerLink]="(office() ? '/office/protocol/' : '/matches/') + match().id"
+  ><div class="match-date">
+    <b>{{ date(match().startsAt) }}</b
+    ><span>{{ tournamentName() }} · Тур {{ match().round }}</span>
+  </div>
+  <div class="teams">
+    <span class="home"
+      ><app-team-badge [team]="home()" size="sm" /><b>{{ home()?.name || 'Хозяева' }}</b></span
+    ><strong [class.played]="match().status === 'completed'"
+      >{{
+        match().status === 'completed'
+          ? match().homeScore +
+            ' :
+      ' +
+            match().awayScore
+          : time(match().startsAt)
+      }}<small>{{ match().status === 'completed' ? 'Итоговый счёт' : 'МСК' }}</small></strong
+    ><span class="away"
+      ><b>{{ away()?.name || 'Гости' }}</b
+      ><app-team-badge [team]="away()" size="sm"
+    /></span>
+  </div>
+  <div class="venue">
+    <span>{{ match().venue }}</span
+    ><small
+      >{{
+        office()
+          ? 'Открыть протокол'
+          : match().status === 'completed'
+            ? 'Протокол
+      матча'
+            : 'О матче'
+      }}
+      <b>↗</b></small
+    >
+  </div></a
+>

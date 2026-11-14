@@ -1,0 +1,113 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+.leader-board h3 {
+  font:
+    500 20px Oswald,
+    sans-serif;
+  text-transform: uppercase;
+  border-left: 4px solid var(--accent);
+  padding-left: 10px;
+  margin: 0 0 18px;
+}
+.leader-feature {
+  height: 205px;
+  position: relative;
+  display: block;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 70% 100%, #4d2228 0, transparent 68%),
+    linear-gradient(135deg, #20252b, #171b1f);
+  border-bottom: 2px solid var(--accent);
+}
+.player-number {
+  position: absolute;
+  right: 12px;
+  top: -22px;
+  font:
+    600 145px Oswald,
+    sans-serif;
+  color: #ffffff06;
+}
+.player-monogram {
+  position: absolute;
+  right: 30px;
+  top: 15px;
+  width: 120px;
+  height: 140px;
+  display: grid;
+  place-items: center;
+  font:
+    500 54px Oswald,
+    sans-serif;
+  letter-spacing: -4px;
+  color: #e0e2e4;
+  background: linear-gradient(150deg, #3e454e, #22272e);
+  clip-path: polygon(15% 15%, 35% 0, 65% 0, 85% 15%, 100% 100%, 0 100%);
+  opacity: 0.75;
+}
+.player-caption {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 40px 17px 17px;
+  background: linear-gradient(transparent, #13171c);
+  font-size: 10px;
+  color: var(--muted);
+}
+.player-caption b {
+  font:
+    500 19px Oswald,
+    sans-serif;
+  color: var(--text);
+  display: block;
+  margin-top: 5px;
+}
+.leader-board ol {
+  padding: 0;
+  list-style: none;
+  margin: 8px 0 0;
+}
+.leader-board li a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--surface-raised);
+  padding: 8px 10px;
+  margin-bottom: 4px;
+  font-size: 11px;
+}
+.leader-board li:first-child a {
+  background: #3a252a;
+}
+.leader-board li a > span:first-child {
+  color: var(--muted);
+  width: 10px;
+}
+.leader-board li b {
+  margin-left: auto;
+  font-size: 14px;
+}
+.leader-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.leader-board a:hover {
+  color: var(--accent);
+}
+@media (max-width: 640px) {
+  .leader-feature {
+    height: 160px;
+  }
+  .player-monogram {
+    height: 110px;
+    width: 90px;
+    font-size: 40px;
+  }
+  .player-number {
+    font-size: 120px;
+  }
+}

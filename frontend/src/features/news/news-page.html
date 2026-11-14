@@ -1,0 +1,27 @@
+<section class="content-section">
+  @if (vm.entityId()) {
+    @for (n of vm.data().news; track n.id) {
+      @if (n.id === vm.entityId()) {
+        <article class="article">
+          <a class="back-link" routerLink="/news">← Все новости</a
+          ><span class="eyebrow">{{ n.category }} · {{ vm.date(n.createdAt) }}</span>
+          <h1>{{ n.title }}</h1>
+          <p>{{ n.body }}</p>
+        </article>
+      }
+    }
+  } @else {
+    <span class="eyebrow">ВОКРУГ ЛЬДА</span>
+    <h1>Жизнь сообщества<span class="accent-dot">.</span></h1>
+    <div class="news-grid">
+      @for (n of vm.data().news; track n.id) {
+        <a class="panel news-text-card" [routerLink]="'/news/' + n.id"
+          ><span class="eyebrow">{{ n.category }}</span>
+          <h2>{{ n.title }}</h2>
+          <p>{{ n.body.slice(0, 180) }}…</p>
+          <span class="text-accent">Читать ↗</span></a
+        >
+      }
+    </div>
+  }
+</section>

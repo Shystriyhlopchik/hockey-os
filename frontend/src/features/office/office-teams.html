@@ -1,0 +1,58 @@
+<div class="toolbar">
+  <input
+    class="search"
+    [ngModel]="vm.search()"
+    (ngModelChange)="vm.search.set($event)"
+    placeholder="Название команды…"
+    aria-label="Найти команду"
+  />
+  @if (vm.canGlobal() || vm.tournament()?.status === 'draft') {
+    <button class="btn primary" (click)="vm.open('team')">+ Команда</button>
+  }
+  <button class="btn secondary" (click)="vm.open('registration')">+ Заявить игрока</button>
+</div>
+<div class="team-office-grid">
+  @for (t of vm.filteredTeams(); track t.id) {
+    <section class="panel">
+      <div class="team-panel-heading">
+        <app-team-badge [team]="t" size="md" />
+        <div>
+          <h2>{{ t.name }}</h2>
+          <small>{{ t.city }} · {{ vm.teamRoster(t.id).length }} игроков в заявке</small>
+        </div>
+        <button class="icon-btn" (click)="vm.open('team', t)" aria-label="Редактировать команду">
+          ✎
+        </button>
+      </div>
+      <div class="roster-list">
+        @for (r of vm.teamRoster(t.id); track r.id) {
+          <div>
+            <span class="jersey">{{ r.number }}</span
+            ><span
+              ><b>{{ r.player?.name }}</b
+              ><small
+                >{{ vm.positions[r.player?.position] }}
+                {{ r.captain ? '· ' + r.captain : '' }}</small
+              ></span
+            ><button
+              class="icon-btn danger"
+              (click)="vm.removeRegistration(r)"
+              aria-label="Исключить из заявки"
+            >
+              ×
+            </button>
+          </div>
+        } @empty {
+          <p class="muted">Игроки ещё не заявлены.</p>
+        }
+      </div>
+      @if (vm.tournament()?.teamIds?.includes(t.id)) {
+        <button class="text-button" (click)="vm.teamFilter.set(t.id); vm.open('registration')">
+          Добавить в заявку →
+        </button>
+      } @else {
+        <span class="badge">В каталоге сообщества</span>
+      }
+    </section>
+  }
+</div>

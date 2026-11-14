@@ -1,0 +1,106 @@
+<div class="public-filter">
+  @if (vm.route() !== 'calendar') {
+    <label class="tournament-label"
+      >Турнир<select
+        [ngModel]="vm.tournament()?.id"
+        (ngModelChange)="vm.selectTournament($event)"
+        aria-label="Турнир"
+        [disabled]="!vm.tournaments().length"
+      >
+        @for (t of vm.tournaments(); track t.id) {
+          <option [ngValue]="t.id">{{ t.name }}</option>
+        }
+      </select></label
+    >
+  }
+  <label class="season-label"
+    >Сезон<select
+      class="season-select"
+      [ngModel]="vm.seasonId()"
+      (ngModelChange)="vm.selectSeason($event)"
+      aria-label="Сезон"
+    >
+      <option [ngValue]="0">Все сезоны</option>
+      @for (s of vm.data().seasons; track s.id) {
+        <option [ngValue]="s.id">{{ s.name }}</option>
+      }
+    </select></label
+  >
+</div>
+
+@if (vm.team(); as selectedTeam) {
+  <section class="content-section">
+    <a routerLink="/teams" class="back-link">← Все команды</a>
+    <div class="profile-hero">
+      <app-team-badge [team]="selectedTeam" size="lg" />
+      <div>
+        <span class="eyebrow">{{ selectedTeam.city }} · ХОККЕЙНЫЙ КЛУБ</span>
+        <h1>{{ selectedTeam.name }}</h1>
+        <p>{{ selectedTeam.description }}</p>
+      </div>
+      <div class="profile-stat">
+        <b>{{ vm.teamStats(selectedTeam.id)?.points || 0 }}</b
+        ><span>ОЧКОВ В СЕЗОНЕ</span>
+      </div>
+    </div>
+    <h2>Состав команды</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>№</th>
+            <th>Игрок</th>
+            <th>Амплуа</th>
+            <th>Квалификация</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (r of vm.teamRoster(selectedTeam.id); track r.id) {
+            <tr>
+              <td>{{ r.number }}</td>
+              <td>
+                <a [routerLink]="'/players/' + r.playerId"
+                  ><b>{{ r.player?.name }}</b></a
+                >
+                <span class="badge">{{
+                  r.captain === 'C' ? 'Капитан' : r.captain === 'A' ? 'Ассистент' : ''
+                }}</span>
+              </td>
+              <td>{{ vm.positions[r.player?.position] }}</td>
+              <td>{{ vm.qualifications[r.player?.qualification] }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+} @else {
+  <section class="content-section">
+    <div class="section-heading">
+      <div>
+        <span class="eyebrow">ХАРАКТЕР НАШЕГО ГОРОДА</span>
+        <h1>Команды лиги<span class="accent-dot">.</span></h1>
+      </div>
+      <input
+        class="search"
+        [ngModel]="vm.search()"
+        (ngModelChange)="vm.search.set($event)"
+        placeholder="Найти команду…"
+        aria-label="Поиск команды"
+      />
+    </div>
+    <div class="club-grid">
+      @for (t of vm.filteredTeams(); track t.id) {
+        <a class="club-card" [routerLink]="'/teams/' + t.id"
+          ><span class="eyebrow">{{ t.city }}</span
+          ><app-team-badge [team]="t" size="lg" />
+          <h2>{{ t.name }}</h2>
+          <div>
+            <span>{{ vm.teamRoster(t.id).length }} хоккеиста</span
+            ><span>{{ vm.teamStats(t.id)?.played || 0 }} матчей</span><b>↗</b>
+          </div></a
+        >
+      }
+    </div>
+  </section>
+}

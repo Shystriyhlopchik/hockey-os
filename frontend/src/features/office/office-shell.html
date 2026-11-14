@@ -1,0 +1,84 @@
+@let actor = vm.actor();
+@if (!actor) {
+  <main class="login-wall">
+    <img
+      class="login-emblem"
+      src="/branding/chhl-logo.png"
+      width="96"
+      height="96"
+      alt="Логотип Чебоксарской хоккейной лиги"
+    /><span class="eyebrow">СЛУЖЕБНЫЙ КАБИНЕТ</span>
+    <h1>Всё для проведения<br />вашего турнира.</h1>
+    <p>Составы, календарь и протоколы в одном месте.</p>
+    <button class="btn primary" (click)="vm.login()">Войти в кабинет ↗</button>
+  </main>
+} @else {
+  <div class="office-shell">
+    <aside class="sidebar">
+      <div class="user-card">
+        <span class="avatar">{{ actor.displayName.slice(0, 1) }}</span
+        ><strong>{{ actor.displayName }}</strong
+        ><small>{{ vm.roles[actor.role] }}</small>
+      </div>
+      <nav aria-label="Кабинет">
+        <a routerLink="/office" [class.selected]="vm.section() === 'overview'"
+          >◈ <span>Обзор</span></a
+        >
+        <a
+          routerLink="/office/matches"
+          [class.selected]="vm.section() === 'matches' || vm.section() === 'protocol'"
+          >▤ <span>Матчи и протоколы</span></a
+        >
+        <a routerLink="/office/teams" [class.selected]="vm.section() === 'teams'"
+          >◇ <span>Команды и составы</span></a
+        >
+        <a routerLink="/office/players" [class.selected]="vm.section() === 'players'"
+          >○ <span>Хоккеисты</span></a
+        >
+        @if (vm.canAdmin()) {
+          <a routerLink="/office/tournaments" [class.selected]="vm.section() === 'tournaments'"
+            >⚑ <span>Турниры</span></a
+          >
+        }
+        @if (vm.canGlobal()) {
+          <a routerLink="/office/users" [class.selected]="vm.section() === 'users'"
+            >⊞ <span>Пользователи</span></a
+          ><a routerLink="/office/news" [class.selected]="vm.section() === 'news'"
+            >▥ <span>Новости</span></a
+          ><a routerLink="/office/settings" [class.selected]="vm.section() === 'settings'"
+            >⚙ <span>Сообщество</span></a
+          >
+        }
+        <a routerLink="/office/audit" [class.selected]="vm.section() === 'audit'"
+          >↺ <span>Журнал изменений</span></a
+        >
+      </nav>
+      <div class="sidebar-bottom">
+        <span class="tiny-label">ПОСЛЕМАТЧЕВЫЙ ВВОД</span>
+        <p>Официальные результаты<br />начинаются с протокола.</p>
+        <button (click)="vm.logout()">Выйти из кабинета ↗</button>
+      </div>
+    </aside>
+    <main class="office-main">
+      <div class="page-heading">
+        <div>
+          <span class="eyebrow">Кабинет / {{ vm.data().community.city }}</span>
+          <h1>{{ vm.title() }}</h1>
+        </div>
+        @if (vm.section() !== 'protocol') {
+          <label class="select-label"
+            >Текущий турнир<select
+              [ngModel]="vm.tournament()?.id"
+              (ngModelChange)="vm.selectTournament($event)"
+            >
+              @for (t of vm.tournaments(); track t.id) {
+                <option [ngValue]="t.id">{{ t.name }}</option>
+              }
+            </select></label
+          >
+        }
+      </div>
+      <router-outlet />
+    </main>
+  </div>
+}

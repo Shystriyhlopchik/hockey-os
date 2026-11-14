@@ -1,0 +1,37 @@
+<div class="toolbar">
+  <p class="muted">Доступ выдаётся администратором. Назначения ограничивают турнир.</p>
+  <button class="btn primary" (click)="vm.open('user')">+ Пользователь</button>
+</div>
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Пользователь</th>
+        <th>Роль</th>
+        <th>Состояние</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (u of vm.work().users; track u.id) {
+        <tr>
+          <td>
+            <b>{{ u.displayName }}</b
+            ><small>{{ u.username }}</small>
+          </td>
+          <td>{{ vm.roles[u.role] }}</td>
+          <td>
+            <span class="badge" [class.green]="u.active">{{
+              u.active ? 'Активен' : 'Отключён'
+            }}</span>
+          </td>
+          <td>
+            <button class="btn secondary compact" (click)="vm.open('user', u)">
+              Права и настройки
+            </button>
+          </td>
+        </tr>
+      }
+    </tbody>
+  </table>
+</div>

@@ -1,0 +1,67 @@
+:host {
+  display: inline-flex;
+  flex: none;
+  vertical-align: middle;
+}
+.team-badge {
+  width: 60px;
+  height: 66px;
+  position: relative;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  isolation: isolate;
+}
+.team-badge svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  fill: color-mix(in srgb, var(--club-color) 75%, #090b0c);
+  stroke: var(--club-color);
+  stroke-width: 2;
+}
+.team-badge .inset {
+  fill: #15191d;
+  stroke: color-mix(in srgb, var(--club-color) 65%, white);
+  stroke-width: 1;
+}
+.team-badge .sticks {
+  fill: none;
+  stroke: var(--club-color);
+  stroke-width: 4;
+  opacity: 0.3;
+}
+.team-badge b {
+  position: relative;
+  font-family: Oswald, sans-serif;
+  font-size: 22px;
+  letter-spacing: -1px;
+  transform: skewY(-5deg);
+  text-shadow: 0 2px 8px #000;
+}
+.small {
+  width: 27px;
+  height: 30px;
+}
+.small b {
+  font-size: 10px;
+  letter-spacing: 0;
+}
+.large {
+  width: 94px;
+  height: 104px;
+}
+.large b {
+  font-size: 32px;
+}
+
+@media (max-width: 640px) {
+  .large {
+    width: 58px;
+    height: 64px;
+  }
+  .large b {
+    font-size: 22px;
+  }
+}

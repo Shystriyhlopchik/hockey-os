@@ -1,0 +1,76 @@
+<div class="public-filter">
+  @if (vm.route() !== 'calendar') {
+    <label class="tournament-label"
+      >Турнир<select
+        [ngModel]="vm.tournament()?.id"
+        (ngModelChange)="vm.selectTournament($event)"
+        aria-label="Турнир"
+        [disabled]="!vm.tournaments().length"
+      >
+        @for (t of vm.tournaments(); track t.id) {
+          <option [ngValue]="t.id">{{ t.name }}</option>
+        }
+      </select></label
+    >
+  }
+  <label class="season-label"
+    >Сезон<select
+      class="season-select"
+      [ngModel]="vm.seasonId()"
+      (ngModelChange)="vm.selectSeason($event)"
+      aria-label="Сезон"
+    >
+      <option [ngValue]="0">Все сезоны</option>
+      @for (s of vm.data().seasons; track s.id) {
+        <option [ngValue]="s.id">{{ s.name }}</option>
+      }
+    </select></label
+  >
+</div>
+
+<section class="content-section">
+  <div class="section-heading">
+    <div>
+      <span class="eyebrow">ВСТРЕЧАЕМСЯ НА ЛЬДУ</span>
+      <h1>Календарь матчей<span class="accent-dot">.</span></h1>
+    </div>
+    <span class="muted">Время московское · UTC+3</span>
+  </div>
+  <div class="toolbar">
+    <input
+      class="search"
+      [ngModel]="vm.search()"
+      (ngModelChange)="vm.search.set($event)"
+      placeholder="Команда, турнир или арена…"
+      aria-label="Поиск в календаре"
+    /><select
+      [ngModel]="vm.statusFilter()"
+      (ngModelChange)="vm.statusFilter.set($event)"
+      aria-label="Статус"
+    >
+      <option value="all">Все матчи</option>
+      <option value="scheduled">Предстоящие</option>
+      <option value="completed">Результаты</option></select
+    ><select
+      [ngModel]="vm.teamFilter()"
+      (ngModelChange)="vm.teamFilter.set($event)"
+      aria-label="Команда"
+    >
+      <option [ngValue]="0">Все команды</option>
+      @for (t of vm.calendarTeams(); track t.id) {
+        <option [ngValue]="t.id">{{ t.name }}</option>
+      }
+    </select>
+  </div>
+  <div class="calendar-list">
+    @for (match of vm.filteredMatches(); track match.id) {
+      <app-match-row
+        [match]="match"
+        [teams]="vm.data().teams"
+        [tournamentName]="vm.tournamentName(match.tournamentId)"
+      />
+    } @empty {
+      <div class="empty">По выбранным фильтрам матчей нет.</div>
+    }
+  </div>
+</section>

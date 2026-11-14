@@ -1,0 +1,224 @@
+<main class="home-page">
+  <section class="games-section" aria-labelledby="upcoming-title">
+    <div class="strip-heading">
+      <h1 id="upcoming-title"><span class="live-dot"></span> Ближайшие игры</h1>
+      <a routerLink="/calendar">Весь календарь <span>↗</span></a>
+    </div>
+    <div class="games-grid">
+      @for (match of vm.upcoming(); track match.id) {
+        <app-match-card
+          [match]="match"
+          [teams]="vm.data().teams"
+          [tournamentName]="vm.tournamentName(match.tournamentId)"
+        />
+      } @empty {
+        <div class="empty">Даты ближайших матчей появятся после обновления календаря.</div>
+      }
+    </div>
+  </section>
+  <a class="league-banner" routerLink="/regulations"
+    ><span class="banner-small">ЛЮБИТЕЛЬСКИЙ ХОККЕЙ</span><b>ОДИН ГОРОД. <em>ОДНА ИГРА.</em></b
+    ><span class="banner-link">О лиге <span>↗</span></span></a
+  >
+  <section class="home-news" aria-labelledby="news-title">
+    <app-section-heading
+      title="Новости лиги"
+      headingId="news-title"
+      eyebrow="ВСЁ, ЧТО ПРОИСХОДИТ НА ЛЬДУ И РЯДОМ"
+      href="/news"
+      linkLabel="Все новости"
+    />
+    <div class="news-layout">
+      @if (news()[0]; as featured) {
+        <a class="featured-story" [routerLink]="'/news/' + featured.id"
+          ><img
+            src="/editorial/hockey-action.png"
+            alt=""
+            width="1774"
+            height="887"
+            fetchpriority="high"
+          /><span class="story-topline"
+            ><span class="category-badge">{{ featured.category }}</span
+            ><small>Иллюстрация</small></span
+          >
+          <div class="story-caption">
+            <span
+              >{{ vm.date(featured.createdAt, { day: 'numeric', month: 'long' }) }}
+              <i> / </i> Чебоксарская ХЛ</span
+            >
+            <h2>{{ featured.title }}</h2>
+            <p>{{ featured.body.slice(0, 120) }}{{ featured.body.length > 120 ? '…' : '' }}</p>
+            <b>Читать новость <span>↗</span></b>
+          </div></a
+        >
+      } @else {
+        <div class="featured-story empty-story">
+          <img src="/editorial/hockey-action.png" alt="" width="1774" height="887" />
+          <div class="story-caption">
+            <span>ЧЕБОКСАРСКАЯ ХЛ</span>
+            <h2>НАШ ГОРОД.<br />НАШ ХОККЕЙ.</h2>
+            <p>Новости лиги скоро появятся здесь.</p>
+          </div>
+        </div>
+      }
+      <div class="news-feed">
+        <div class="feed-label">В ЦЕНТРЕ ВНИМАНИЯ <span>↗</span></div>
+        @for (item of news().slice(1, 5); track item.id; let i = $index) {
+          <a [routerLink]="'/news/' + item.id"
+            ><span class="news-thumb" [class.rink-thumb]="i % 2 === 1"
+              ><span>{{ i % 2 === 0 ? 'ЧХЛ' : 'НА ЛЁД' }}</span
+              ><b>{{ i + 1 < 10 ? '0' + (i + 1) : i + 1 }}</b></span
+            ><span class="news-feed-text"
+              ><small>{{ item.category }}</small>
+              <h3>{{ item.title }}</h3>
+              <time>{{ vm.date(item.createdAt) }}</time></span
+            ><span class="news-arrow">↗</span></a
+          >
+        } @empty {
+          <p class="muted">Следите за обновлениями лиги.</p>
+        }
+        <a class="news-all" routerLink="/news">Все новости лиги <span>→</span></a>
+      </div>
+    </div>
+  </section>
+  <section class="season-section" aria-labelledby="statistics-title">
+    <div class="statistics-heading">
+      <app-section-heading
+        title="Статистика сезона"
+        headingId="statistics-title"
+        eyebrow="КАЖДАЯ ИГРА ИМЕЕТ ЗНАЧЕНИЕ"
+      /><label class="league-select"
+        ><span>Лига</span
+        ><select
+          aria-label="Выбор лиги"
+          [value]="vm.tournament()?.id"
+          (change)="vm.selectTournament(+$any($event.target).value)"
+        >
+          @for (tournament of vm.tournaments(); track tournament.id) {
+            <option [value]="tournament.id">{{ tournament.name }}</option>
+          }
+        </select></label
+      >
+    </div>
+    <div class="statistics-grid">
+      <section>
+        <h3 class="block-heading">Сезон {{ vm.seasonName() }}</h3>
+        <div class="season-metrics">
+          <div class="wide-metric">
+            <span>Сыграно матчей</span><b>{{ summary().played }}</b>
+          </div>
+          <div>
+            <span>Команд</span><b>{{ summary().teams }}</b>
+          </div>
+          <div>
+            <span>Хоккеистов</span><b>{{ summary().players }}</b>
+          </div>
+          <div>
+            <span>Осталось игр</span><b>{{ summary().remaining }}</b>
+          </div>
+          <div>
+            <span>Шайбы</span><b>{{ summary().goals }}</b>
+          </div>
+          <div>
+            <span>Передачи</span><b>{{ summary().assists }}</b>
+          </div>
+          <div>
+            <span>Штраф, мин.</span><b>{{ summary().penalties }}</b>
+          </div>
+        </div>
+        <p class="metric-note">По опубликованным протоколам выбранной лиги.</p>
+      </section>
+      <section>
+        <h3 class="block-heading">
+          Турнирная таблица
+          <span>{{ vm.tournament()?.division }} · Регулярный этап</span>
+        </h3>
+        <app-standings-table [rows]="vm.standings()" [compact]="true" /><a
+          class="btn primary slanted table-link"
+          [routerLink]="'/tournaments/' + vm.tournament()?.id"
+          >Вся таблица <span>→</span></a
+        >
+      </section>
+    </div>
+  </section>
+  <section class="home-results">
+    <app-section-heading
+      title="Результаты"
+      eyebrow="ПОСЛЕ ФИНАЛЬНОЙ СИРЕНЫ"
+      href="/calendar"
+      linkLabel="Все матчи"
+    />
+    <p class="table-context">{{ vm.tournament()?.name }}</p>
+    <div class="games-grid">
+      @for (match of vm.results(); track match.id) {
+        <app-match-card
+          [match]="match"
+          [teams]="vm.data().teams"
+          [tournamentName]="vm.tournamentName(match.tournamentId)"
+        />
+      } @empty {
+        <p class="empty">В выбранной лиге пока нет опубликованных результатов.</p>
+      }
+    </div>
+  </section>
+  <section class="home-leaders">
+    <app-section-heading
+      title="Лидеры сезона"
+      eyebrow="ЛЮДИ, КОТОРЫЕ ДЕЛАЮТ ИГРУ"
+      href="/players"
+      linkLabel="Вся статистика"
+    />
+    <p class="table-context">{{ vm.tournament()?.name }}</p>
+    <div class="leaders-grid">
+      <app-leader-board
+        title="Бомбардиры"
+        metric="points"
+        [rows]="vm.tournamentStats()"
+        [teams]="vm.data().teams"
+      /><app-leader-board
+        title="Снайперы"
+        metric="goals"
+        [rows]="vm.tournamentStats()"
+        [teams]="vm.data().teams"
+      /><app-leader-board
+        title="Ассистенты"
+        metric="assists"
+        [rows]="vm.tournamentStats()"
+        [teams]="vm.data().teams"
+      />
+    </div>
+  </section>
+  <section class="arenas-section">
+    <app-section-heading title="Наш лёд" eyebrow="ДОМАШНИЕ АРЕНЫ ЛИГИ" />
+    <div class="arenas-layout">
+      <div class="arena-graphic" aria-hidden="true">
+        <div class="rink-outline">
+          <div class="rink-red-line"></div>
+          <div class="rink-blue-line one"></div>
+          <div class="rink-blue-line two"></div>
+          <div class="rink-circle"></div>
+          <span class="faceoff left"></span><span class="faceoff right"></span
+          ><i class="arena-dot"></i>
+        </div>
+        <div class="arena-title">ЧЕБОКСАРЫ<span>ЗДЕСЬ НАЧИНАЕТСЯ ИГРА</span></div>
+      </div>
+      <div class="arena-details">
+        <span class="eyebrow">ТОЧКИ ПРИТЯЖЕНИЯ</span>
+        <h3>Город живёт<br /><em>хоккеем.</em></h3>
+        <div class="arena-list">
+          @for (venue of venues(); track venue; let i = $index) {
+            <div>
+              <span>0{{ i + 1 }}</span>
+              <div>
+                <b>{{ venue }}</b
+                ><small>Чебоксары · Домашний лёд</small>
+              </div>
+              <span aria-hidden="true">⌖</span>
+            </div>
+          }
+        </div>
+        <a routerLink="/calendar">Увидимся на трибунах <span>↗</span></a>
+      </div>
+    </div>
+  </section>
+</main>

@@ -1,0 +1,89 @@
+<div class="toolbar">
+  <input
+    class="search"
+    [ngModel]="vm.search()"
+    (ngModelChange)="vm.search.set($event)"
+    placeholder="Найти команду или арену…"
+    aria-label="Поиск матча"
+  /><select
+    [ngModel]="vm.statusFilter()"
+    (ngModelChange)="vm.statusFilter.set($event)"
+    aria-label="Статус матча"
+  >
+    <option value="all">Все матчи</option>
+    <option value="scheduled">Ожидают протокола</option>
+    <option value="completed">Опубликованные</option>
+  </select>
+  @if (vm.canAdmin()) {
+    <button
+      class="btn primary"
+      (click)="vm.open('calendar')"
+      [disabled]="vm.busy() || !vm.hasEditableSchedule()"
+    >
+      Редактировать календарь ↗</button
+    ><button class="btn secondary" (click)="vm.open('playoff')">Плей-офф ↗</button>
+  }
+</div>
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>№ / Дата</th>
+        <th>Матч</th>
+        <th>Площадка</th>
+        <th>Счёт</th>
+        <th>Протокол</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (m of vm.filteredMatches(); track m.id) {
+        <tr>
+          <td>
+            <span class="muted">#{{ m.id }}</span
+            ><br />{{ vm.date(m.startsAt) }}<small>{{ vm.time(m.startsAt) }} МСК</small>
+          </td>
+          <td>
+            <b>{{ vm.teamName(m.homeTeamId) }}</b
+            ><small>против {{ vm.teamName(m.awayTeamId) }}</small>
+          </td>
+          <td>
+            {{ m.venue
+            }}<small>{{
+              m.stage === 'regular' ? 'Тур ' + m.round : 'Плей-офф · игра ' + m.gameNumber
+            }}</small>
+          </td>
+          <td class="score-cell">
+            {{ m.status === 'completed' ? m.homeScore + ' : ' + m.awayScore : '—' }}
+            <small>{{ vm.outcome(m) }}</small>
+          </td>
+          <td>
+            <span class="badge" [class.green]="m.status === 'completed'">{{
+              m.status === 'completed' ? 'Опубликован · v' + m.protocolVersion : 'Ожидается'
+            }}</span>
+          </td>
+          <td>
+            <a class="btn compact primary" [routerLink]="'/office/protocol/' + m.id"
+              >{{ m.status === 'completed' ? 'Открыть' : 'Заполнить' }} ↗</a
+            >
+            @if (vm.canAdmin() && m.status === 'scheduled') {
+              <button
+                class="icon-btn"
+                (click)="vm.open('schedule', m)"
+                aria-label="Изменить дату матча"
+              >
+                ✎
+              </button>
+            }
+          </td>
+        </tr>
+      } @empty {
+        <tr>
+          <td colspan="6" class="empty">
+            Матчи не найдены. Сформируйте календарь или измените фильтр.
+          </td>
+        </tr>
+      }
+    </tbody>
+  </table>
+</div>

@@ -1,0 +1,14 @@
+<span
+  class="team-badge"
+  [class.small]="size() === 'sm'"
+  [class.large]="size() === 'lg'"
+  [style.--club-color]="team()?.color || '#79818c'"
+  [attr.aria-label]="team()?.name || 'Участник не определён'"
+>
+  <svg viewBox="0 0 80 88" aria-hidden="true">
+    <path d="M5 8 40 2 75 8v36c0 20-16 31-35 41C21 75 5 64 5 44Z" />
+    <path class="inset" d="m13 15 27-5 27 5v28c0 15-12 25-27 33-15-8-27-18-27-33Z" />
+    <path class="sticks" d="m18 61 42-37m-40 0 42 37" />
+  </svg>
+  <b>{{ initials() }}</b>
+</span>
