@@ -43,13 +43,13 @@
   gap: 12px;
 }
 .league-banner {
-  height: 65px;
+  min-height: 65px;
   margin: 24px 0 50px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 20px;
-  padding: 0 26px;
+  padding: 12px 26px;
   border: 1px solid #57202b;
   background:
     repeating-linear-gradient(

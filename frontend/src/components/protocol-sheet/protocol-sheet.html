@@ -41,7 +41,7 @@
           </tr>
         </thead>
         <tbody>
-          @for (r of protocol()[side.key]; track r.playerId) {
+          @for (r of side.roster; track r.playerId) {
             <tr>
               <td>{{ r.number }}</td>
               <td>{{ name(r.playerId) }}</td>
@@ -82,7 +82,7 @@
           </tr>
         </thead>
         <tbody>
-          @for (g of protocol().goals; track g.id; let i = $index) {
+          @for (g of orderedGoals(); track g.id; let i = $index) {
             @if (g.teamId === side.id) {
               <tr>
                 <td>{{ i + 1 }}</td>

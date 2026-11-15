@@ -1,3 +1,4 @@
+import { withoutGoal } from './protocol-order';
 import { replaceList } from '../../core/state/draft-updates';
 import type { Signal, WritableSignal } from '@angular/core';
 interface ProtocolActionContext {
@@ -117,6 +118,10 @@ export function createProtocolActions(context: ProtocolActionContext) {
     dirty.set(true);
   }
 
+  function removeGoal(id: string) {
+    patchProtocol(['goals'], withoutGoal(protocol().goals, id));
+  }
+
   function addTimeout() {
     const teamId = protocolTeams().find(
       (id) => !protocol().sheet.timeouts.some((item: any) => item.teamId === id),
@@ -164,6 +169,7 @@ export function createProtocolActions(context: ProtocolActionContext) {
     addGoalie,
     addShootout,
     removeEvent,
+    removeGoal,
     addTimeout,
     addMissedShot,
     toggleOnIce,

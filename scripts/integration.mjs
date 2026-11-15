@@ -279,6 +279,56 @@ try{
   assert.deepEqual(sharedSnapshot.stats.filter(row=>row.playerId===sharedId&&row.tournamentId===1),leagueOneStats);
   assert.deepEqual(sharedSnapshot.stats.filter(row=>row.playerId===sharedId&&row.tournamentId===2),oldLeagueTwoStats);
   ok('Переход администратора оставляет одну действующую команду в лиге и сохраняет историю статистики обеих лиг');
+  const beforeTechnical=await api('public');
+  const technicalMatch=beforeTechnical.matches.find(game=>game.tournamentId===1&&game.status==='completed'&&game.stage==='regular'&&game.id===1);
+  assert.ok(technicalMatch);
+  const technicalDetail=await api(`workspace/matches/${technicalMatch.id}`);
+  const originalTechnicalProtocol=structuredClone(technicalDetail.protocol);
+  assert.equal(originalTechnicalProtocol.detailLevel,'full');
+  assert.ok(originalTechnicalProtocol.goals.length>0);
+  const reorderedProtocol=structuredClone(originalTechnicalProtocol);
+  reorderedProtocol.homeRoster.reverse();reorderedProtocol.awayRoster.reverse();reorderedProtocol.goals.reverse();
+  await publish(technicalMatch.id,reorderedProtocol,'organizer','Проверка порядка печати и выгрузки');
+  const reorderedDetail=await api(`workspace/matches/${technicalMatch.id}`);
+  assert.deepEqual(reorderedDetail.protocol.goals.map(goal=>goal.id),reorderedProtocol.goals.map(goal=>goal.id));
+  const orderedExport=await fetch(base+`matches/${technicalMatch.id}/export.xlsx`);assert.equal(orderedExport.status,200);
+  const orderedBook=new Workbook();await orderedBook.xlsx.load(Buffer.from(await orderedExport.arrayBuffer()));
+  const orderedSheet=orderedBook.getWorksheet('Протокол');const rosterHeaders=[];let goalHeader=0;
+  orderedSheet.eachRow((row,index)=>{if(row.getCell(1).value==='Номер'&&row.getCell(2).value==='Игрок')rosterHeaders.push(index);if(row.getCell(1).value==='Период'&&row.getCell(2).value==='Время матча'&&row.getCell(4).value==='Автор')goalHeader=index;});
+  assert.equal(rosterHeaders.length,2);assert.ok(goalHeader);
+  for(const [index,roster] of [originalTechnicalProtocol.homeRoster,originalTechnicalProtocol.awayRoster].entries()){
+    const expected=[...roster.filter(player=>player.position==='G').sort((a,b)=>a.number-b.number),...roster.filter(player=>player.position!=='G').sort((a,b)=>a.number-b.number)];
+    assert.deepEqual(expected.map((player,offset)=>[orderedSheet.getRow(rosterHeaders[index]+1+offset).getCell(1).value,orderedSheet.getRow(rosterHeaders[index]+1+offset).getCell(3).value]),expected.map(player=>[player.number,player.position]));
+  }
+  const expectedExportGoals=[...originalTechnicalProtocol.goals].sort((a,b)=>a.period-b.period||a.time.localeCompare(b.time,undefined,{numeric:true}));
+  assert.deepEqual(expectedExportGoals.map((goal,index)=>orderedSheet.getRow(goalHeader+1+index).getCell(2).value),expectedExportGoals.map(goal=>goal.time));
+  ok('XLSX ставит вратарей первыми и сортирует номера и игровое время, не меняя сохранённую последовательность ввода голов');
+  const technicalProtocol=emptyProtocol();technicalProtocol.resolution='technical';technicalProtocol.manualHomeScore=0;technicalProtocol.manualAwayScore=5;technicalProtocol.technicalReason='Проверка технического поражения';
+  await publish(technicalMatch.id,technicalProtocol,'secretary','Проверка полномочий').then(()=>assert.fail('Секретарь назначил технический результат'),error=>assert.match(error.message,/403|администратор/));
+  await publish(technicalMatch.id,technicalProtocol,'organizer','Замена результата на технический для проверки');
+  const afterTechnical=await api('public');
+  const publishedTechnical=afterTechnical.matches.find(game=>game.id===technicalMatch.id);
+  assert.equal(publishedTechnical.homeScore,0);assert.equal(publishedTechnical.awayScore,5);assert.equal(publishedTechnical.resolution,'technical');
+  for(const [teamId,own,other] of [[technicalMatch.homeTeamId,technicalMatch.homeScore,technicalMatch.awayScore],[technicalMatch.awayTeamId,technicalMatch.awayScore,technicalMatch.homeScore]]){
+    const before=beforeTechnical.standings[1].find(row=>row.teamId===teamId),after=afterTechnical.standings[1].find(row=>row.teamId===teamId);
+    assert.equal(after.played,before.played);assert.equal(after.goalsFor,before.goalsFor-own);assert.equal(after.goalsAgainst,before.goalsAgainst-other);
+    assert.equal(after.difference,after.goalsFor-after.goalsAgainst);
+  }
+  const statsFor=(snapshot,teamId,playerId)=>snapshot.stats.find(row=>row.tournamentId===1&&row.teamId===teamId&&row.playerId===playerId)||{games:0,goals:0,assists:0,points:0,penaltyMinutes:0};
+  for(const [teamId,roster] of [[technicalMatch.homeTeamId,originalTechnicalProtocol.homeRoster],[technicalMatch.awayTeamId,originalTechnicalProtocol.awayRoster]])for(const player of roster){
+    const before=statsFor(beforeTechnical,teamId,player.playerId),after=statsFor(afterTechnical,teamId,player.playerId);
+    const goals=originalTechnicalProtocol.goals.filter(goal=>goal.scorerId===player.playerId).length;
+    const assists=originalTechnicalProtocol.goals.reduce((sum,goal)=>sum+Number(goal.assist1Id===player.playerId)+Number(goal.assist2Id===player.playerId),0);
+    const penalties=originalTechnicalProtocol.penalties.filter(penalty=>penalty.playerId===player.playerId).reduce((sum,penalty)=>sum+penalty.minutes,0);
+    assert.equal(after.games,before.games-Number(player.played));assert.equal(after.goals,before.goals-goals);assert.equal(after.assists,before.assists-assists);
+    assert.equal(after.points,before.points-goals-assists);assert.equal(after.penaltyMinutes,before.penaltyMinutes-penalties);
+  }
+  ok('Замена опубликованного матча на технические 0:5 сохраняет результат, исключает условные шайбы и снимает личную статистику; секретарю назначение запрещено');
+  await publish(technicalMatch.id,originalTechnicalProtocol,'organizer','Восстановление сыгранного результата после проверки');
+  const restoredTechnical=await api('public');
+  assert.deepEqual(restoredTechnical.standings[1],beforeTechnical.standings[1]);assert.deepEqual(restoredTechnical.stats,beforeTechnical.stats);
+  ok('Обратное исправление технического результата восстанавливает таблицу и личную статистику без двойного начисления');
+
   const audit=await api('workspace/audit');assert.ok(audit.some(a=>a.action==='publish_protocol'));assert.ok(audit.some(a=>a.action==='correct_protocol'));ok('Журнал сохраняет публикации и причины исправлений');
   console.log(`Готово: ${passed} сквозных проверок на отдельной PostgreSQL.`);
 }finally{

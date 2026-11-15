@@ -1,3 +1,4 @@
+import { compareRoster, sortRoster } from '../../features/protocol/protocol-order';
 import { emptySnapshot } from './empty-snapshot';
 import { createProtocolActions } from '../../features/protocol/protocol-actions';
 import { createPlayerIdentity } from '../../features/players/player-identity';
@@ -287,7 +288,7 @@ function createLeagueState() {
   });
   const totalGoals = computed(() => {
     return matches()
-      .filter((m) => m.status === 'completed')
+      .filter((m) => m.status === 'completed' && m.resolution !== 'technical')
       .reduce((s, m) => s + (m.homeScore || 0) + (m.awayScore || 0), 0);
   });
   const completed = computed(() => {
@@ -818,7 +819,12 @@ function createLeagueState() {
             position: r.position,
           },
         })),
-    ];
+    ].sort((a, b) =>
+      compareRoster(
+        rosterEntry(teamId, a.playerId) || { number: a.number, position: a.player.position },
+        rosterEntry(teamId, b.playerId) || { number: b.number, position: b.player.position },
+      ),
+    );
   }
   function roster(teamId: number): any[] {
     return teamId === detail()?.match.homeTeamId
@@ -832,7 +838,7 @@ function createLeagueState() {
     return roster(teamId).find((x) => x.playerId === id);
   }
   function rosterOptions(teamId: number) {
-    return roster(teamId).map((x) => ({ ...x, name: playerName(x.playerId) }));
+    return sortRoster(roster(teamId)).map((x) => ({ ...x, name: playerName(x.playerId) }));
   }
   function matchTimeRange(period: number) {
     const rules = detail()?.tournament.rules;
@@ -915,6 +921,7 @@ function createLeagueState() {
     addGoalie,
     addShootout,
     removeEvent,
+    removeGoal,
     addTimeout,
     addMissedShot,
     toggleOnIce,
@@ -1239,6 +1246,7 @@ function createLeagueState() {
     addGoalie,
     addShootout,
     removeEvent,
+    removeGoal,
     opponentTeam,
     addTimeout,
     addMissedShot,

@@ -34,3 +34,16 @@ test('Empty tournaments show actual zero values', () => {
     penalties: 0,
   });
 });
+
+test('Technical games count as completed while their nominal goals are excluded; a played 5:0 counts', () => {
+  const matches = [
+    { status: 'completed', resolution: 'technical', homeScore: 0, awayScore: 5 },
+    { status: 'completed', resolution: 'technical', homeScore: 5, awayScore: 0 },
+    { status: 'completed', resolution: 'regulation', homeScore: 5, awayScore: 0 },
+    { status: 'scheduled', resolution: null, homeScore: null, awayScore: null },
+  ];
+  const summary = homeSummary(matches as any, [], 2);
+  assert.equal(summary.played, 3);
+  assert.equal(summary.remaining, 1);
+  assert.equal(summary.goals, 5);
+});

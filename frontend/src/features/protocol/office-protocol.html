@@ -330,13 +330,14 @@
                             min="1"
                             max="99"
                             [ngModel]="entry.number"
+                            [ngModelOptions]="{ updateOn: 'blur' }"
                             (ngModelChange)="vm.patchProtocolItem(entry, { number: $event })"
                             [attr.aria-label]="'Номер игрока ' + c.player.name"
                           />
                         </td>
                         <td>
                           <b>{{ c.player.name }}</b
-                          ><small>{{ vm.positions[c.player.position] }}</small>
+                          ><small>{{ vm.positions[entry.position] }}</small>
                         </td>
                         <td>
                           <select
@@ -380,14 +381,11 @@
       </div>
     }
     @if (vm.protocolTab() === 'goals') {
-      <div class="section-heading">
-        <div>
-          <h2>Взятия ворот</h2>
-          <p class="muted">{{ vm.protocolTimeHint() }}</p>
-        </div>
+      <div class="section-heading protocol-goal-heading">
+        <h2>Взятия ворот</h2>
         <button
           class="btn primary"
-          (click)="vm.addGoal()"
+          (click)="addGoal()"
           [disabled]="
             vm.protocol().detailLevel !== 'full' || vm.protocol().resolution === 'technical'
           "
@@ -395,9 +393,15 @@
           + Гол
         </button>
       </div>
-      <div class="event-list">
-        @for (g of vm.protocol().goals; track g.id; let i = $index) {
-          <section class="event-row">
+      <p class="muted">{{ vm.protocolTimeHint() }}</p>
+      <p class="protocol-goal-order">
+        Последние добавленные голы — сверху. В печатном протоколе события идут по игровому времени.
+      </p>
+      <div class="event-list" #goalList>
+        @for (entry of goals(); track entry.goal.id) {
+          @let g = entry.goal;
+          @let i = entry.index;
+          <section class="event-row" [attr.data-goal-id]="g.id">
             <span class="event-number">{{ i + 1 }}</span
             ><label
               >Команда<select
@@ -477,11 +481,7 @@
                   <option [value]="s[0]">{{ s[1] }}</option>
                 }
               </select></label
-            ><button
-              class="icon-btn danger"
-              (click)="vm.removeEvent(vm.protocol().goals, i)"
-              aria-label="Удалить гол"
-            >
+            ><button class="icon-btn danger" (click)="vm.removeGoal(g.id)" aria-label="Удалить гол">
               ×
             </button>
             <details class="sheet-onice">

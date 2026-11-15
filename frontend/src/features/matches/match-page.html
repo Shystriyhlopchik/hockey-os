@@ -49,7 +49,7 @@
       <div class="home-columns">
         <section>
           <h2>Голы матча</h2>
-          @for (g of p.goals; track g.id) {
+          @for (g of goals(); track g.id) {
             <div class="timeline-goal">
               <span>{{ g.period }}<small>ПЕРИОД</small></span
               ><b>{{ g.time }}</b>
@@ -102,17 +102,11 @@
         </section>
       </div>
       <div class="protocol-rosters content-section">
-        @for (
-          side of [
-            ['homeRoster', vm.detail().match.homeTeamId],
-            ['awayRoster', vm.detail().match.awayTeamId],
-          ];
-          track side[0]
-        ) {
+        @for (side of rosters(); track side.teamId) {
           <section>
-            <h2>{{ vm.teamName($any(side[1])) }} · состав</h2>
+            <h2>{{ vm.teamName(side.teamId) }} · состав</h2>
             <div class="roster-list">
-              @for (r of p[$any(side[0])]; track r.playerId) {
+              @for (r of side.rows; track r.playerId) {
                 <div>
                   <span class="jersey">{{ r.number }}</span
                   ><span

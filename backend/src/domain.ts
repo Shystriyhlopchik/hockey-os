@@ -290,13 +290,21 @@ export function resolveProtocol(p: Protocol, match: MatchInput, rules: Rules): R
   if(match.stage==='regular'&&rules.profile==='festival') ensure(!['overtime','shootout'].includes(p.resolution),'Регулярка фестиваля не предусматривает ОТ и БП');
   return {homeScore:home,awayScore:away,periodScores:scores,resolution:p.resolution,winnerId:home===away?null:home>away?match.homeTeamId:match.awayTeamId};
 }
+export function sortProtocolRoster<T extends Pick<RosterEntry,'number'|'position'>>(roster:readonly T[]):T[]{
+  return [...roster].sort((a,b)=>Number(b.position==='G')-Number(a.position==='G')||a.number-b.number);
+}
+export function chronologicalProtocolGoals<T extends Pick<Goal,'period'|'time'>>(goals:readonly T[]):T[]{
+  return [...goals].sort((a,b)=>a.period-b.period||seconds(a.time)-seconds(b.time));
+}
 export function calculateStandings(teams: {id:number;name:string;color:string;abbreviation:string;averageAge?:number}[], matches: TableMatch[], rules: Rules): Standing[] {
   const rows=new Map<number,Standing>(teams.map(t=>[t.id,{teamId:t.id,name:t.name,color:t.color,abbreviation:t.abbreviation,played:0,wins:0,overtimeWins:0,shootoutWins:0,draws:0,losses:0,overtimeLosses:0,goalsFor:0,goalsAgainst:0,difference:0,points:0,form:[],position:0,tieNote:'',averageAge:t.averageAge||0}]));
   const completed=matches.filter(m=>m.status==='completed'&&m.stage==='regular'&&m.homeScore!==null&&m.awayScore!==null);
   for(const m of completed) for(const home of [true,false]) {
     const r=rows.get(home?m.homeTeamId:m.awayTeamId); if(!r)continue;
     const own=(home?m.homeScore:m.awayScore)!,other=(home?m.awayScore:m.homeScore)!; const ot=['overtime','shootout'].includes(m.resolution||'');
-    r.played++; r.goalsFor+=own;r.goalsAgainst+=other;r.difference=r.goalsFor-r.goalsAgainst;
+    r.played++;
+    if(m.resolution!=='technical'){r.goalsFor+=own;r.goalsAgainst+=other;}
+    r.difference=r.goalsFor-r.goalsAgainst;
     if(own>other){r.wins++;if(m.resolution==='overtime')r.overtimeWins++;if(m.resolution==='shootout')r.shootoutWins++;r.points+=rules.pointsWin;r.form.push('W');}
     else if(own===other){r.draws++;r.points+=rules.pointsDraw;r.form.push('D');}
     else {r.losses++;if(ot)r.overtimeLosses++;r.points+=ot?rules.pointsOvertimeLoss:rules.pointsLoss;r.form.push('L');}
@@ -309,7 +317,8 @@ export function calculateStandings(teams: {id:number;name:string;color:string;ab
     if(criterion>=1&&criterion<=4) for(const m of completed.filter(x=>ids.has(x.homeTeamId)&&ids.has(x.awayTeamId))) for(const home of [true,false]) {
       const v=mini.get(home?m.homeTeamId:m.awayTeamId)!;const a=(home?m.homeScore:m.awayScore)!,b=(home?m.awayScore:m.homeScore)!;
       v.points+=a>b?rules.pointsWin:a===b?rules.pointsDraw:['overtime','shootout'].includes(m.resolution||'')?rules.pointsOvertimeLoss:rules.pointsLoss;
-      v.wins+=a>b?1:0;v.diff+=a-b;v.goals+=a;
+      v.wins+=a>b?1:0;
+      if(m.resolution!=='technical'){v.diff+=a-b;v.goals+=a;}
     }
     const metric=(r:Standing):number=>rules.profile==='festival' ? [r.points,mini.get(r.teamId)!.points,mini.get(r.teamId)!.wins,mini.get(r.teamId)!.diff,mini.get(r.teamId)!.goals,r.wins,r.difference,r.goalsFor,r.averageAge][criterion] : [r.points,r.wins-r.overtimeWins-r.shootoutWins,r.overtimeWins,r.shootoutWins,r.difference,r.goalsFor][criterion];
     const max=rules.profile==='festival'?8:5;

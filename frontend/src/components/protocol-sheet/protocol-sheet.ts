@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { chronologicalGoals, sortRoster } from '../../features/protocol/protocol-order';
 import {
   OFFICIAL_FIELDS,
   STAFF_FIELDS,
@@ -46,17 +46,20 @@ export class ProtocolSheet {
         ?.number ?? '—'
     );
   }
+  protected readonly orderedGoals = computed(() => chronologicalGoals<any>(this.protocol().goals));
   readonly sides = computed(() => {
     return [
       {
         id: this.match().homeTeamId,
         key: 'homeRoster',
+        roster: sortRoster<any>(this.protocol().homeRoster),
         staff: 'homeStaff',
         letter: 'А',
       },
       {
         id: this.match().awayTeamId,
         key: 'awayRoster',
+        roster: sortRoster<any>(this.protocol().awayRoster),
         staff: 'awayStaff',
         letter: 'Б',
       },

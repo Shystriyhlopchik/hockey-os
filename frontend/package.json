@@ -5,7 +5,7 @@
   "scripts": {
     "start": "ng serve --host 127.0.0.1 --port 4300",
     "build": "ng build",
-    "test": "node --experimental-strip-types --test src/core/state/draft-updates.spec.ts src/core/routing/route-state.spec.ts src/features/home/home-summary.spec.ts src/features/calendar/match-calendar.spec.ts src/features/calendar/schedule-editor.spec.ts src/features/protocol/protocol-sheet.spec.ts src/features/players/identity-checks.spec.ts",
+    "test": "node --experimental-strip-types --test src/core/state/draft-updates.spec.ts src/core/routing/route-state.spec.ts src/features/home/home-summary.spec.ts src/features/calendar/match-calendar.spec.ts src/features/calendar/schedule-editor.spec.ts src/features/protocol/protocol-sheet.spec.ts src/features/players/identity-checks.spec.ts src/features/protocol/protocol-order.spec.ts",
     "format": "prettier --write \"src/**/*.{ts,html,css}\"",
     "format:check": "prettier --check \"src/**/*.{ts,html,css}\""
   },

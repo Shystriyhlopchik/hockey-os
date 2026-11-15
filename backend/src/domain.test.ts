@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {ageOn,roundRobin,FESTIVAL_RULES,STANDARD_RULES,emptyProtocol,resolveProtocol,calculateStandings,validateRules,validateProtocolShape,protocolInMatchTime,Protocol,Rules} from './domain';
+import {ageOn,roundRobin,FESTIVAL_RULES,STANDARD_RULES,emptyProtocol,resolveProtocol,calculateStandings,validateRules,validateProtocolShape,protocolInMatchTime,sortProtocolRoster,chronologicalProtocolGoals,Protocol,Rules} from './domain';
 const rules:Rules={...FESTIVAL_RULES,minSkaters:3,maxSkaters:20};
 const match={homeTeamId:1,awayTeamId:2,stage:'regular'};
 function protocol():Protocol{const p=emptyProtocol();p.homeRoster=[1,2,3,4].map((id,i)=>({playerId:id,number:id,position:i===0?'G':'F',captain:i===1?'C':'',played:true}));p.awayRoster=p.homeRoster.map(x=>({...x,playerId:x.playerId+10}));return p;}
@@ -107,4 +107,51 @@ test('Забитый штрафной бросок не имеет ассист�
   p.goals[0].assist1Id=null;p.goals[0].assist2Id=null;assert.equal(resolveProtocol(p,match,rules).homeScore,1);
   p.sheet=officialSheet();p.sheet.officials.secretary='x'.repeat(201);assert.throws(()=>validateProtocolShape(p),/Слишком длинное имя/);
   p.sheet=officialSheet();(p.sheet.timeouts as any)=[null];assert.throws(()=>validateProtocolShape(p),/дополнительный раздел/);
+});
+
+test('Технические 0:5 и 5:0 сохраняют очки и победы, не добавляя шайбы в обоих профилях',()=>{
+  const teams=[1,2].map(id=>({id,name:String(id),color:'',abbreviation:''}));
+  for(const profile of [FESTIVAL_RULES,STANDARD_RULES])for(const [homeScore,awayScore] of [[0,5],[5,0]]){
+    const rows=calculateStandings(teams,[{...match,homeScore,awayScore,status:'completed',resolution:'technical'}],profile);
+    const winner=rows.find(row=>row.teamId===(homeScore>awayScore?1:2))!;
+    const loser=rows.find(row=>row.teamId!==(homeScore>awayScore?1:2))!;
+    assert.equal(winner.points,profile.pointsWin);assert.equal(winner.wins,1);assert.equal(loser.losses,1);
+    assert.equal(loser.points,profile.pointsLoss);
+    assert.ok(rows.every(row=>row.played===1&&row.goalsFor===0&&row.goalsAgainst===0&&row.difference===0));
+  }
+});
+
+test('Обычная победа 5:0 полностью учитывается в шайбах, даже рядом с технической',()=>{
+  const teams=[1,2].map(id=>({id,name:String(id),color:'',abbreviation:''}));
+  const rows=calculateStandings(teams,[
+    {...match,homeScore:5,awayScore:0,status:'completed',resolution:'regulation'},
+    {...match,homeScore:0,awayScore:5,status:'completed',resolution:'technical'},
+  ],rules);
+  const home=rows.find(row=>row.teamId===1)!,away=rows.find(row=>row.teamId===2)!;
+  assert.equal(home.played,2);assert.equal(home.wins,1);assert.equal(home.losses,1);
+  assert.equal(home.goalsFor,5);assert.equal(home.goalsAgainst,0);assert.equal(home.difference,5);
+  assert.equal(away.goalsFor,0);assert.equal(away.goalsAgainst,5);assert.equal(away.difference,-5);
+});
+
+test('Условные шайбы не участвуют в мини-таблице личных встреч при равенстве очков',()=>{
+  const teams=[1,2,3].map(id=>({id,name:String(id),color:'',abbreviation:''}));
+  const matches=[
+    {homeTeamId:1,awayTeamId:2,homeScore:5,awayScore:0,resolution:'technical'},
+    {homeTeamId:2,awayTeamId:3,homeScore:3,awayScore:0,resolution:'regulation'},
+    {homeTeamId:3,awayTeamId:1,homeScore:2,awayScore:0,resolution:'regulation'},
+  ].map(game=>({...game,status:'completed',stage:'regular'}));
+  const rows=calculateStandings(teams,matches,rules);
+  assert.deepEqual(rows.map(row=>row.teamId),[2,3,1]);
+  assert.ok(rows.every(row=>row.points===rules.pointsWin&&row.wins===1));
+  assert.equal(rows.find(row=>row.teamId===1)!.difference,-2);
+});
+
+test('Выгрузка сортирует состав и время событий, сохраняя исходный порядок сохранённого протокола',()=>{
+  const roster=[{number:2,position:'F' as const},{number:30,position:'G' as const},{number:1,position:'G' as const},{number:9,position:'D' as const}];
+  const original=structuredClone(roster);
+  assert.deepEqual(sortProtocolRoster(roster).map(row=>row.number),[1,30,2,9]);assert.deepEqual(roster,original);
+  const events=[{period:3,time:'42:00'},{period:1,time:'10:00'},{period:1,time:'9:00'},{period:2,time:'21:00'}];
+  const saved=structuredClone(events);
+  assert.deepEqual(chronologicalProtocolGoals(events).map(goal=>goal.time),['9:00','10:00','21:00','42:00']);
+  assert.deepEqual(events,saved);
 });
