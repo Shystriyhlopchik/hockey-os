@@ -1,0 +1,31 @@
+<a
+  class="news-card"
+  [class.large]="variant() === 'large'"
+  [routerLink]="['/news', news().slug || news().id]"
+>
+  <div class="news-image">
+    @if (hasImage()) {
+      <img
+        [src]="news().coverUrl"
+        alt=""
+        loading="lazy"
+        (error)="failedImage.set(news().coverUrl)"
+      />
+    } @else {
+      <div class="news-placeholder" aria-hidden="true">
+        <img src="/branding/chhl-logo.png" alt="" /><span>ЧЕБОКСАРСКАЯ<br />ХОККЕЙНАЯ ЛИГА</span>
+      </div>
+    }
+  </div>
+  <div class="news-copy">
+    <span class="category">{{ news().category }}</span>
+    <h3>{{ news().title }}</h3>
+    @if (variant() === 'large') {
+      <p>{{ news().excerpt }}</p>
+    }
+    <time [attr.datetime]="news().publishedAt || news().createdAt">{{
+      news().publishedAt || news().createdAt | date: 'dd.MM.yyyy' : '+0300'
+    }}</time>
+    <span class="read">Читать <span aria-hidden="true">↗</span></span>
+  </div>
+</a>

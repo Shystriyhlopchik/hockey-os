@@ -1,0 +1,138 @@
+:host {
+  display: block;
+  min-width: 0;
+  height: 100%;
+}
+.news-card {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  gap: 18px;
+  height: 100%;
+  border-bottom: 1px solid var(--border);
+  padding: 0 0 16px;
+}
+.news-image {
+  aspect-ratio: 4/3;
+  overflow: hidden;
+  background: var(--surface);
+  align-self: start;
+}
+.news-image > img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.3s;
+}
+.news-card:hover .news-image > img {
+  transform: scale(1.035);
+}
+.news-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(ellipse at 20% 60%, #5d1526, transparent 75%), var(--surface);
+}
+.news-placeholder img {
+  width: 54%;
+  max-width: 170px;
+  max-height: 85%;
+  object-fit: contain;
+}
+.news-placeholder span {
+  display: none;
+  font:
+    500 24px/1.4 Oswald,
+    sans-serif;
+}
+.news-copy {
+  min-width: 0;
+}
+.category {
+  color: var(--accent);
+  font-size: 10px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.news-copy h3 {
+  font:
+    400 21px/1.3 Oswald,
+    sans-serif;
+  margin: 5px 0 12px;
+  overflow-wrap: anywhere;
+}
+.news-copy time {
+  font-size: 11px;
+  color: var(--muted);
+}
+.read {
+  display: none;
+}
+.large {
+  grid-template-columns: 1fr;
+  gap: 0;
+  padding: 0;
+  border: 0;
+  background: var(--surface);
+}
+.large .news-image {
+  aspect-ratio: 16/9;
+}
+.large .news-copy {
+  padding: 22px 24px;
+}
+.large h3 {
+  font-size: 32px;
+  margin: 10px 0;
+}
+.large p {
+  color: var(--muted);
+  font-size: 13px;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.large .read {
+  display: flex;
+  float: right;
+  gap: 22px;
+  font-size: 12px;
+}
+.read span {
+  color: var(--accent);
+}
+.large .news-placeholder span {
+  display: block;
+}
+@media (max-width: 600px) {
+  .news-card {
+    grid-template-columns: 90px minmax(0, 1fr);
+    gap: 12px;
+  }
+  .news-copy h3 {
+    font-size: 19px;
+  }
+  .large {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .large h3 {
+    font-size: 26px;
+  }
+  .large .news-copy {
+    padding: 18px;
+  }
+  .large .news-placeholder span {
+    font-size: 18px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .news-image > img {
+    transition: none;
+  }
+}

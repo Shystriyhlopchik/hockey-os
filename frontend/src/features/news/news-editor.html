@@ -1,0 +1,111 @@
+@if (!vm.canGlobal()) {
+  <div class="empty panel">Редактор доступен администратору сообщества и суперпользователю.</div>
+} @else {
+  <div class="editor-heading">
+    <a class="back-link" routerLink="/office/news">← Все новости</a
+    ><span class="badge">{{ published() ? 'Опубликована' : 'Черновик' }}</span>
+  </div>
+  <h2>{{ id() ? 'Редактирование новости' : 'Новая новость' }}</h2>
+  @if (error()) {
+    <div class="inline-error" role="alert">{{ error() }}</div>
+  }
+  @if (notice()) {
+    <div class="message" role="status">{{ notice() }}</div>
+  }
+  @if (loading()) {
+    <p role="status">Загружаем новость…</p>
+  } @else if (!loadFailed()) {
+    <form [formGroup]="form" (ngSubmit)="save(published())">
+      <fieldset [disabled]="saving()">
+        <div class="editor-grid">
+          <div class="editor-main panel">
+            <label>Заголовок *<input formControlName="title" maxlength="200" /></label>
+            @if (form.controls.title.touched && form.controls.title.invalid) {
+              <small class="field-error">Введите заголовок от 3 до 200 символов.</small>
+            }
+            <label
+              >Краткий анонс<textarea formControlName="excerpt" maxlength="500" rows="3"></textarea
+              ><small>Появится в карточке новости. До 500 символов.</small></label
+            >
+            <label
+              >Текст новости *<textarea
+                formControlName="body"
+                maxlength="50000"
+                rows="18"
+              ></textarea
+              ><small>Разделяйте абзацы пустой строкой. До 50 000 символов.</small></label
+            >
+            @if (form.controls.body.touched && form.controls.body.invalid) {
+              <small class="field-error">Заполните текст новости.</small>
+            }
+          </div>
+          <aside class="editor-side panel">
+            <label>Раздел *<input formControlName="category" maxlength="50" /></label>
+            @if (form.controls.category.touched && form.controls.category.invalid) {
+              <small class="field-error">Укажите раздел новости.</small>
+            }
+            <label
+              >Адрес статьи<input
+                formControlName="slug"
+                [readOnly]="slugLocked()"
+                maxlength="200"
+                placeholder="Сформируется из заголовка"
+              /><small>{{
+                slugLocked()
+                  ? 'Зафиксирован после первой публикации.'
+                  : 'Латинские буквы, цифры и дефисы. Начните с буквы или оставьте пустым.'
+              }}</small></label
+            >
+            @if (form.controls.slug.touched && form.controls.slug.invalid) {
+              <small class="field-error">Проверьте адрес статьи.</small>
+            }
+            <label
+              >Обложка<input
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                (change)="selectCover($event)"
+              /><small>PNG, JPEG или WebP, до 5 МБ.</small></label
+            >
+            @if (coverPreview(); as cover) {
+              <img class="cover-preview" [src]="cover" alt="Предпросмотр обложки" /><button
+                class="btn secondary compact"
+                type="button"
+                (click)="removeCover()"
+              >
+                Удалить обложку
+              </button>
+            } @else {
+              <p class="cover-empty">Без обложки в карточке появится символика ЧХЛ.</p>
+            }
+          </aside>
+        </div>
+        <div class="editor-actions">
+          <button class="btn secondary" type="submit">
+            {{
+              saving() ? 'Сохраняем…' : published() ? 'Сохранить изменения' : 'Сохранить черновик'
+            }}
+          </button>
+          @if (!published()) {
+            <button class="btn primary" type="button" (click)="save(true)">
+              Опубликовать на сайте ↗
+            </button>
+          }
+          <button class="btn secondary" type="button" (click)="togglePreview()">
+            {{ preview() ? 'Закрыть предпросмотр' : 'Предпросмотр' }}
+          </button>
+        </div>
+      </fieldset>
+    </form>
+    @if (preview()) {
+      <article class="editor-preview panel">
+        <span class="eyebrow">ПРЕДПРОСМОТР</span>
+        <h1>{{ previewTitle() || 'Заголовок новости' }}</h1>
+        @if (coverPreview(); as cover) {
+          <img [src]="cover" alt="" />
+        }
+        <p class="preview-excerpt">{{ previewExcerpt() }}</p>
+        <div class="preview-body">{{ previewBody() }}</div>
+      </article>
+    }
+  }
+}

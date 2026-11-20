@@ -6,13 +6,14 @@
     "dev": "node scripts/dev.mjs",
     "start": "node backend/dist/main.js",
     "build": "pnpm --dir backend build && pnpm --dir frontend build",
-    "test": "pnpm --dir backend test && pnpm --dir frontend test",
+    "test": "node --test shared/goalie-statistics.test.js && pnpm --dir backend test && pnpm --dir frontend test",
     "test:integration": "node scripts/player-identity.integration.mjs && node scripts/player-deletion.integration.mjs && node scripts/integration.mjs",
     "db:up": "docker compose up -d database",
     "db:local": "node scripts/local-db.mjs",
     "db:stop:local": "node scripts/stop-db.mjs",
     "db:stop": "docker compose stop database",
-    "setup": "node scripts/setup.mjs"
+    "setup": "node scripts/setup.mjs",
+    "test:news": "node scripts/news.integration.mjs"
   },
   "packageManager": "pnpm@11.25.0",
   "engines": {

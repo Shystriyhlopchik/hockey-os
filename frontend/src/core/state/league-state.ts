@@ -1,3 +1,4 @@
+import { goalieSummary } from '../../../../shared/goalie-statistics.js';
 import { compareRoster, sortRoster } from '../../features/protocol/protocol-order';
 import { emptySnapshot } from './empty-snapshot';
 import { createProtocolActions } from '../../features/protocol/protocol-actions';
@@ -140,6 +141,7 @@ function createLeagueState() {
     update: 'Изменена запись',
     remove: 'Удалён из заявки',
     delete_player: 'Игрок удалён из системы',
+    delete_news: 'Новость удалена',
     login: 'Вход в кабинет',
     demo_seed: 'Демонстрационное наполнение',
   };
@@ -686,10 +688,6 @@ function createLeagueState() {
       });
     else if (kind === 'playoff' && t) form.set({ id: t.id, size: Math.min(8, t.teamIds.length) });
     else if (kind === 'settings') form.set({ ...work().community });
-    else if (kind === 'news')
-      form.set(
-        item ? { ...item } : { title: '', body: '', category: 'Сообщество', published: true },
-      );
     else if (kind === 'season')
       form.set({
         name: '2027 / 2028',
@@ -766,7 +764,6 @@ function createLeagueState() {
             player: 'players',
             tournament: 'tournaments',
             user: 'users',
-            news: 'news',
           };
           try {
             await request(
@@ -876,11 +873,18 @@ function createLeagueState() {
   async function saveProtocol(publish = false) {
     await run(
       async () => {
+        if (publish && protocol().detailLevel === 'full' && protocol().resolution !== 'technical') {
+          const summary = goalieSummary(protocol(), detail().match, detail().tournament.rules);
+          if (summary.issues.length) {
+            protocolTab.set('goalies');
+            throw new Error(summary.issues[0].message);
+          }
+        }
         const result = await request(
           `workspace/matches/${entityId()}/${publish ? 'publish' : 'draft'}`,
           'POST',
           {
-            protocol: protocol(),
+            protocol: publish ? { ...protocol(), goalieStatsVersion: 1 } : protocol(),
             expectedDraftVersion: draftVersion(),
             expectedProtocolVersion: protocolVersion(),
             reason: revisionReason(),
@@ -922,6 +926,7 @@ function createLeagueState() {
     addShootout,
     removeEvent,
     removeGoal,
+    removePenalty,
     addTimeout,
     addMissedShot,
     toggleOnIce,
@@ -1247,6 +1252,7 @@ function createLeagueState() {
     addShootout,
     removeEvent,
     removeGoal,
+    removePenalty,
     opponentTeam,
     addTimeout,
     addMissedShot,

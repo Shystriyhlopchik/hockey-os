@@ -1,0 +1,18 @@
+@if (pages() > 1) {
+  <nav aria-label="Страницы новостей">
+    <button
+      class="btn secondary compact"
+      [disabled]="page() <= 1"
+      (click)="pageChange.emit(page() - 1)"
+    >
+      ← Назад</button
+    ><span>Страница {{ page() }} из {{ pages() }}</span
+    ><button
+      class="btn secondary compact"
+      [disabled]="page() >= pages()"
+      (click)="pageChange.emit(page() + 1)"
+    >
+      Далее →
+    </button>
+  </nav>
+}

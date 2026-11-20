@@ -1,0 +1,12 @@
+nav {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin: 32px 0 0;
+}
+span {
+  color: var(--muted);
+  font-size: 12px;
+}

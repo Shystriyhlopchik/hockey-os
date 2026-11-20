@@ -255,6 +255,32 @@
       </table>
     </section>
   }
+  @if (keepers().rows.length) {
+    <section>
+      <h3>Статистика вратарей</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Команда</th>
+            <th>Вратарь</th>
+            <th>Время на льду</th>
+            <th>Пропущено шайб</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (keeper of keepers().rows; track keeper.playerId) {
+            <tr>
+              <td>{{ team(keeper.teamId) }}</td>
+              <td>{{ name(keeper.playerId) }}</td>
+              <td>{{ keeper.complete ? goalieTime(keeper.seconds) : 'Нет данных' }}</td>
+              <td>{{ keeper.complete ? keeper.goalsAgainst : 'Нет данных' }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+      <p>Пустые ворота и серия буллитов не включаются в личные пропущенные шайбы.</p>
+    </section>
+  }
   <section>
     <h3>Бригада судей</h3>
     <div class="sheet-officials">

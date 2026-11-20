@@ -329,6 +329,53 @@ try{
   assert.deepEqual(restoredTechnical.standings[1],beforeTechnical.standings[1]);assert.deepEqual(restoredTechnical.stats,beforeTechnical.stats);
   ok('Обратное исправление технического результата восстанавливает таблицу и личную статистику без двойного начисления');
 
+  const goalieDetail=await api(`workspace/matches/${technicalMatch.id}`);
+  const goalieOriginal=structuredClone(goalieDetail.protocol);
+  const goalieTeam=technicalMatch.homeTeamId,opponent=technicalMatch.awayTeamId;
+  const newKeeper=await api('workspace/players','POST',{firstName:'Статистический',lastName:'Вратарёв',middleName:'Тестович',birthDate:'1965-01-01',position:'G',qualification:'amateur',insured:true,medicallyCleared:true,tournamentId:1,teamId:goalieTeam,number:98,registerAfter:true},'admin',201);
+  const firstKeeper=goalieOriginal.homeRoster.find(row=>row.position==='G'&&row.played).playerId;
+  const awayKeeper=goalieOriginal.awayRoster.find(row=>row.position==='G'&&row.played).playerId;
+  const awayScorer=goalieOriginal.awayRoster.find(row=>row.position!=='G'&&row.played).playerId;
+  const goalieProtocol={...structuredClone(goalieOriginal),timeBasis:'match',goalieStatsVersion:1,resolution:'regulation'};
+  goalieProtocol.homeRoster=goalieProtocol.homeRoster.filter(row=>row.position!=='G'||row.playerId===firstKeeper);
+  goalieProtocol.homeRoster.push({playerId:newKeeper.id,number:98,position:'G',played:true,captain:''});
+  goalieProtocol.goals=[['05:00',1,'EV'],['21:00',2,'EV'],['42:00',3,'EV'],['44:00',3,'EN']].map(([time,period,situation],i)=>({id:'keeper-goal-'+i,teamId:opponent,period,time,scorerId:awayScorer,assist1Id:null,assist2Id:null,situation}));
+  goalieProtocol.goalieShifts=[{teamId:goalieTeam,playerId:firstKeeper,from:'00:00',to:'25:00'},{teamId:goalieTeam,playerId:newKeeper.id,from:'25:00',to:'43:00'},{teamId:goalieTeam,playerId:null,from:'43:00',to:'45:00'},{teamId:opponent,playerId:awayKeeper,from:'00:00',to:'45:00'}];
+  await publish(technicalMatch.id,goalieProtocol,'organizer','Проверка замен вратарей');
+  const goalieStats=()=>api('public').then(s=>s.stats.find(row=>row.playerId===newKeeper.id&&row.tournamentId===1));
+  let goalkeeper=await goalieStats();assert.equal(goalkeeper.games,1);assert.equal(goalkeeper.goalsAgainst,1);assert.equal(goalkeeper.goalieSeconds,1080);assert.equal(goalkeeper.goalsAgainstAverage,3.33);assert.equal(goalkeeper.goalieTracked,true);
+  const goalieBook=new Workbook();await goalieBook.xlsx.load(Buffer.from(await (await fetch(base+`matches/${technicalMatch.id}/export.xlsx`)).arrayBuffer()));
+  const goalieSheet=goalieBook.getWorksheet('Дополнения');let keeperHeader=0;goalieSheet.eachRow((row,index)=>{if(row.getCell(1).value==='СТАТИСТИКА ВРАТАРЕЙ')keeperHeader=index;});assert.ok(keeperHeader);
+  const exported=[];for(let i=keeperHeader+2;i<=goalieSheet.rowCount;i++){const row=goalieSheet.getRow(i);if(!row.getCell(1).value)break;exported.push([row.getCell(2).value,row.getCell(3).value,row.getCell(4).value]);}
+  assert.ok(exported.some(row=>row[0]===`${newKeeper.lastName} ${newKeeper.firstName} ${newKeeper.middleName}`&&row[1]==='18:00'&&row[2]===1));
+  assert.ok(exported.some(row=>row[1]==='25:00'&&row[2]===2));
+  ok('API и XLSX распределяют четыре гола: два первому вратарю, один сменщику, один в пустые ворота; КН считается по секундам');
+  const gap=structuredClone(goalieProtocol);gap.goalieShifts=gap.goalieShifts.filter(row=>row.playerId!==null);
+  let strictDetail=await api(`workspace/matches/${technicalMatch.id}`);
+  await api(`workspace/matches/${technicalMatch.id}/publish`,'POST',{protocol:gap,expectedDraftVersion:strictDetail.draftVersion,expectedProtocolVersion:strictDetail.match.protocolVersion,reason:'Пропуск интервала'},'organizer',400);
+  assert.equal((await api(`workspace/matches/${technicalMatch.id}`)).match.protocolVersion,strictDetail.match.protocolVersion);
+  const boundary=structuredClone(goalieProtocol);boundary.goals[1].time='25:00';
+  await api(`workspace/matches/${technicalMatch.id}/publish`,'POST',{protocol:boundary,expectedDraftVersion:strictDetail.draftVersion,expectedProtocolVersion:strictDetail.match.protocolVersion,reason:'Смена в секунду гола'},'organizer',400);
+  boundary.goals[1].goalieId=firstKeeper;await publish(technicalMatch.id,boundary,'organizer','Уточнение пропустившего вратаря при замене');assert.equal((await goalieStats()).goalsAgainst,1);
+  ok('Публикация нового формата отвергает разрывы и неоднозначную замену; явное указание вратаря разрешает гол на границе без двойного начисления');
+  const otherLeagueGame=(await api('public')).matches.find(game=>game.tournamentId===2&&game.status==='completed');
+  const otherLeagueDetail=await api(`workspace/matches/${otherLeagueGame.id}`);const otherLeagueOriginal=structuredClone(otherLeagueDetail.protocol);
+  await api('workspace/registrations','POST',{tournamentId:2,teamId:otherLeagueGame.homeTeamId,playerId:newKeeper.id,number:98,captain:''},'admin',201);
+  const otherLeagueProtocol={...structuredClone(otherLeagueOriginal),goalieStatsVersion:1};
+  otherLeagueProtocol.homeRoster=otherLeagueProtocol.homeRoster.filter(row=>row.position!=='G');otherLeagueProtocol.homeRoster.push({playerId:newKeeper.id,number:98,position:'G',played:true,captain:''});
+  otherLeagueProtocol.goalieShifts=otherLeagueProtocol.goalieShifts.filter(row=>row.teamId!==otherLeagueGame.homeTeamId);otherLeagueProtocol.goalieShifts.push({teamId:otherLeagueGame.homeTeamId,playerId:newKeeper.id,from:'00:00',to:'45:00'});
+  const beforeOtherLeague=await goalieStats();await publish(otherLeagueGame.id,otherLeagueProtocol,'organizer','Статистика одного вратаря в двух лигах');
+  const bothLeagueStats=(await api('public')).stats.filter(row=>row.playerId===newKeeper.id);assert.equal(bothLeagueStats.length,2);assert.deepEqual(await goalieStats(),beforeOtherLeague);
+  assert.equal(bothLeagueStats.find(row=>row.tournamentId===2).goalsAgainst,otherLeagueProtocol.goals.filter(goal=>goal.teamId!==otherLeagueGame.homeTeamId).length);
+  await publish(otherLeagueGame.id,otherLeagueOriginal,'organizer','Восстановление протокола другой лиги');
+  ok('Один ID вратаря получает раздельные показатели в двух лигах за разные команды');
+  await publish(technicalMatch.id,technicalProtocol,'organizer','Технический результат исключает вратарские показатели');assert.equal(await goalieStats(),undefined);
+  await publish(technicalMatch.id,goalieProtocol,'organizer','Восстановление вратарской статистики');
+  goalkeeper=await goalieStats();assert.deepEqual([goalkeeper.games,goalkeeper.goalsAgainst,goalkeeper.goalieSeconds],[1,1,1080]);
+  const missingGoalies=(await api('public')).stats.filter(row=>row.position==='G'&&row.goalieUntrackedGames>0);assert.ok(missingGoalies.length>0);assert.ok(missingGoalies.every(row=>row.goalsAgainst===null&&row.goalsAgainstAverage===null));
+  await publish(technicalMatch.id,goalieOriginal,'organizer','Завершение проверки вратарей');
+  ok('Технический результат снимает время и пропущенные, восстановление не удваивает показатели; неполные старые протоколы дают null вместо ложного нуля');
+
   const audit=await api('workspace/audit');assert.ok(audit.some(a=>a.action==='publish_protocol'));assert.ok(audit.some(a=>a.action==='correct_protocol'));ok('Журнал сохраняет публикации и причины исправлений');
   console.log(`Готово: ${passed} сквозных проверок на отдельной PostgreSQL.`);
 }finally{

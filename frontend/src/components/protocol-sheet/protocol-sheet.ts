@@ -1,3 +1,4 @@
+import { goalieSummary, formatGoalieTime } from '../../../../shared/goalie-statistics.js';
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import { chronologicalGoals, sortRoster } from '../../features/protocol/protocol-order';
 import {
@@ -34,6 +35,10 @@ export class ProtocolSheet {
   readonly summary = computed(() => {
     return periodSummary(this.protocol(), this.match(), this.tournament().rules);
   });
+  readonly keepers = computed(() =>
+    goalieSummary(this.protocol(), this.match(), this.tournament().rules),
+  );
+  readonly goalieTime = formatGoalieTime;
   team(id: number) {
     return this.teams().find((t) => t.id === id)?.name || '—';
   }

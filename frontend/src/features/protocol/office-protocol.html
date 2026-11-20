@@ -398,8 +398,8 @@
         Последние добавленные голы — сверху. В печатном протоколе события идут по игровому времени.
       </p>
       <div class="event-list" #goalList>
-        @for (entry of goals(); track entry.goal.id) {
-          @let g = entry.goal;
+        @for (entry of goals(); track entry.event.id) {
+          @let g = entry.event;
           @let i = entry.index;
           <section class="event-row" [attr.data-goal-id]="g.id">
             <span class="event-number">{{ i + 1 }}</span
@@ -409,6 +409,7 @@
                 (ngModelChange)="
                   vm.patchProtocolItem(g, {
                     teamId: $event,
+                    goalieId: undefined,
                     scorerId: null,
                     assist1Id: null,
                     assist2Id: null,
@@ -471,6 +472,7 @@
                 [ngModel]="g.situation"
                 (ngModelChange)="
                   vm.patchProtocolItem(g, {
+                    goalieId: undefined,
                     situation: $event,
                     assist1Id: $event === 'PS' ? null : g.assist1Id,
                     assist2Id: $event === 'PS' ? null : g.assist2Id,
@@ -481,7 +483,24 @@
                   <option [value]="s[0]">{{ s[1] }}</option>
                 }
               </select></label
-            ><button class="icon-btn danger" (click)="vm.removeGoal(g.id)" aria-label="Удалить гол">
+            ><label
+              >Пропустивший вратарь<select
+                [ngModel]="g.goalieId"
+                (ngModelChange)="setGoalKeeper(g, $event)"
+                [attr.aria-label]="'Пропустивший вратарь гола №' + (i + 1)"
+              >
+                <option [ngValue]="undefined">По интервалам</option>
+                <option [ngValue]="null">Пустые ворота</option>
+                @for (keeper of keeperOptions(vm.opponentTeam(g.teamId)); track keeper.playerId) {
+                  @if (keeper.played) {
+                    <option [ngValue]="keeper.playerId">
+                      {{ keeper.number }} · {{ keeper.name }}
+                    </option>
+                  }
+                }</select
+              ><small>{{ keeperAssignment(g.id) }}</small></label
+            >
+            <button class="icon-btn danger" (click)="vm.removeGoal(g.id)" aria-label="Удалить гол">
               ×
             </button>
             <details class="sheet-onice">
@@ -538,15 +557,18 @@
         </div>
         <button
           class="btn primary"
-          (click)="vm.addPenalty()"
+          (click)="addPenalty()"
           [disabled]="vm.protocol().resolution === 'technical'"
         >
           + Удаление
         </button>
       </div>
-      <div class="event-list">
-        @for (p of vm.protocol().penalties; track p.id; let i = $index) {
-          <section class="event-row penalty-row">
+      <p class="protocol-goal-order">Последние добавленные удаления — сверху.</p>
+      <div class="event-list" #penaltyList>
+        @for (entry of penalties(); track entry.event.id) {
+          @let p = entry.event;
+          @let i = entry.index;
+          <section class="event-row penalty-row" [attr.data-penalty-id]="p.id">
             <label
               >Команда<select
                 [ngModel]="p.teamId"
@@ -627,7 +649,7 @@
                 placeholder="ММ:СС" /></label
             ><button
               class="icon-btn danger"
-              (click)="vm.removeEvent(vm.protocol().penalties, i)"
+              (click)="vm.removePenalty(p.id)"
               aria-label="Удалить штраф"
             >
               ×
@@ -644,6 +666,47 @@
       </datalist>
     }
     @if (vm.protocolTab() === 'goalies') {
+      @if (vm.protocol().detailLevel === 'full' && vm.protocol().resolution !== 'technical') {
+        <section class="panel goalie-summary" aria-label="Расчёт статистики вратарей">
+          <h3>Статистика по текущему протоколу</h3>
+          <app-goalie-table [rows]="keeperRows()" [teams]="vm.data().teams" [linkPlayers]="false" />
+          @for (teamId of vm.protocolTeams(); track teamId) {
+            <p class="muted">
+              {{ vm.teamName(teamId) }}: в пустые ворота —
+              {{ keeperSummary().emptyNetGoals[teamId] || 0 }}
+            </p>
+            @if (!hasKeeperIntervals(teamId)) {
+              <div class="goalie-quick-actions">
+                <span>{{ vm.teamName(teamId) }} · Кто играл весь матч?</span>
+                @for (keeper of keeperOptions(teamId); track keeper.playerId) {
+                  <button
+                    type="button"
+                    class="btn secondary"
+                    [disabled]="keeperSummary().durationSeconds === null"
+                    (click)="wholeGame(teamId, keeper.playerId)"
+                  >
+                    №{{ keeper.number }} · {{ keeper.name }} — весь матч
+                  </button>
+                }
+              </div>
+            }
+          }
+          <p class="muted">
+            Кнопка «Весь матч» заполняет интервал и снимает отметку «Играл» у запасных вратарей этой
+            команды. Для замен и пустых ворот заполните отдельные интервалы.
+          </p>
+          @if (keeperSummary().issues.length) {
+            <div class="alert warning" role="status">
+              <ul>
+                @for (issue of keeperSummary().issues; track $index) {
+                  <li>{{ issue.message }}</li>
+                }
+              </ul>
+            </div>
+          }
+        </section>
+      }
+
       <div class="section-heading">
         <div>
           <h2>Интервалы игры вратарей</h2>

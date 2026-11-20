@@ -1,6 +1,6 @@
 {
   "name": "@hockey-os/backend", "version": "0.1.0", "private": true,
-  "scripts": {"build": "tsc -p tsconfig.json", "start": "node dist/main.js", "test": "pnpm build && node --test dist/domain.test.js"},
+  "scripts": {"build": "tsc -p tsconfig.json", "start": "node dist/main.js", "test": "pnpm build && node --test dist/domain.test.js dist/news/news-content.test.js"},
   "dependencies": {
     "@nestjs/common": "^11.0.1", "@nestjs/core": "^11.0.1", "@nestjs/config": "^4.0.4",
     "@nestjs/jwt": "^11.0.2", "@nestjs/platform-express": "^11.0.1", "@nestjs/typeorm": "^11.0.1",

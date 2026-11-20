@@ -1,4 +1,5 @@
-import { withoutGoal } from './protocol-order';
+import { goalieMatchDuration, formatGoalieTime } from '../../../../shared/goalie-statistics.js';
+import { withoutEvent } from './protocol-order';
 import { replaceList } from '../../core/state/draft-updates';
 import type { Signal, WritableSignal } from '@angular/core';
 interface ProtocolActionContext {
@@ -90,8 +91,10 @@ export function createProtocolActions(context: ProtocolActionContext) {
       teamId,
       playerId: roster(teamId).find((item) => item.position === 'G')?.playerId || null,
       from: '00:00',
-      to:
-        String(detail().tournament.rules.periods * detail().tournament.rules.periodMinutes) + ':00',
+      to: formatGoalieTime(
+        goalieMatchDuration(protocol(), detail().tournament.rules) ??
+          detail().tournament.rules.periods * detail().tournament.rules.periodMinutes * 60,
+      ),
     });
   }
 
@@ -119,7 +122,11 @@ export function createProtocolActions(context: ProtocolActionContext) {
   }
 
   function removeGoal(id: string) {
-    patchProtocol(['goals'], withoutGoal(protocol().goals, id));
+    patchProtocol(['goals'], withoutEvent(protocol().goals, id));
+  }
+
+  function removePenalty(id: string) {
+    patchProtocol(['penalties'], withoutEvent(protocol().penalties, id));
   }
 
   function addTimeout() {
@@ -170,6 +177,7 @@ export function createProtocolActions(context: ProtocolActionContext) {
     addShootout,
     removeEvent,
     removeGoal,
+    removePenalty,
     addTimeout,
     addMissedShot,
     toggleOnIce,

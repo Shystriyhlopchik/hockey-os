@@ -1,5 +1,6 @@
+import {goalieSummary} from '../../shared/goalie-statistics.js';
 import {Injectable,BadRequestException,ForbiddenException,NotFoundException,ConflictException} from '@nestjs/common';
-import {DataSource,EntityManager,In} from 'typeorm';
+import {DataSource,EntityManager,In,IsNull} from 'typeorm';
 import {Community,Season,User,Assignment,Team,Player,Tournament,Registration,Series,Match,Revision,Audit,News} from './entities';
 import {Actor,hashPassword} from './security';
 import {createHash} from 'node:crypto';
@@ -28,7 +29,7 @@ const today=()=>new Date().toISOString().slice(0,10);
   async snapshot(actor?:Actor){
     const m=this.db.manager;
     const [community,seasons,allTournaments,teams,allPlayers,allRegs,matches,series,news]=await Promise.all([
-      m.find(Community),m.find(Season,{order:{startsOn:'DESC'}}),m.find(Tournament,{order:{id:'ASC'}}),m.find(Team,{order:{name:'ASC'}}),m.find(Player,{order:{lastName:'ASC'}}),m.find(Registration,{where:{active:true}}),m.find(Match,{order:{startsAt:'ASC',id:'ASC'}}),m.find(Series,{order:{id:'ASC'}}),m.find(News,{where:actor?{}:{published:true},order:{createdAt:'DESC'}}),
+      m.find(Community),m.find(Season,{order:{startsOn:'DESC'}}),m.find(Tournament,{order:{id:'ASC'}}),m.find(Team,{order:{name:'ASC'}}),m.find(Player,{order:{lastName:'ASC'}}),m.find(Registration,{where:{active:true}}),m.find(Match,{order:{startsAt:'ASC',id:'ASC'}}),m.find(Series,{order:{id:'ASC'}}),m.find(News,{where:{deletedAt:IsNull(),...(!actor?{published:true}:{})},order:{publishedAt:'DESC',id:'DESC'},take:actor?50:6}),
     ]);
     let tournaments=allTournaments.filter(t=>actor||t.status!=='draft');
     if(actor&&!['superuser','community_admin'].includes(actor.role)){
@@ -42,24 +43,43 @@ const today=()=>new Date().toISOString().slice(0,10);
       const members=teams.filter(x=>t.teamIds.includes(x.id)).map(team=>{const pids=new Set(registrations.filter(r=>r.tournamentId===t.id&&r.teamId===team.id).map(r=>r.playerId));const ages=allPlayers.filter(p=>pids.has(p.id)).map(p=>ageOn(p.birthDate,today()));return {...team,averageAge:ages.length?ages.reduce((a,b)=>a+b,0)/ages.length:0};});
       standings[t.id]=calculateStandings(members,visibleMatches.filter(x=>x.tournamentId===t.id) as any,t.rules);
     }
-    const stats=this.statistics(revisions,visibleMatches,allPlayers);
+    const stats=this.statistics(revisions,visibleMatches,allPlayers,allTournaments);
     const players=allPlayers.filter(p=>!actor||['superuser','community_admin'].includes(actor.role)||registrations.some(r=>r.playerId===p.id)).map(p=>actor?{...p,name:name(p)}:{id:p.id,firstName:p.firstName,lastName:p.lastName,middleName:p.middleName,name:name(p),position:p.position,qualification:p.qualification,birthYear:p.birthDate.slice(0,4)});
     const placements:Record<number,{place:number;teamId:number}[]>={};
     for(const t of tournaments){const final=series.find(s=>s.tournamentId===t.id&&s.round==='final'&&s.winnerId);if(!final)continue;placements[t.id]=[{place:1,teamId:final.winnerId!},{place:2,teamId:(final.winnerId===final.team1Id?final.team2Id:final.team1Id)!}];const losers=series.filter(s=>s.tournamentId===t.id&&s.round==='semi'&&s.winnerId).map(s=>s.winnerId===s.team1Id?s.team2Id!:s.team1Id!);const ranking=t.qualificationSnapshot?.ranking||[];losers.sort((a,b)=>ranking.findIndex((x:any)=>x.teamId===a)-ranking.findIndex((x:any)=>x.teamId===b));if(losers.length)placements[t.id].push({place:3,teamId:losers[0]});}
-    const response:any={community:community[0],demo:process.env.DEMO_SEED==='true',ruleProfiles:{festival:FESTIVAL_RULES,standard:STANDARD_RULES},seasons,tournaments,teams:actor?teams.filter(x=>['superuser','community_admin'].includes(actor.role)||tournaments.some(t=>t.teamIds.includes(x.id))):teams,players,registrations:registrations.map(r=>actor?r:{id:r.id,playerId:r.playerId,teamId:r.teamId,tournamentId:r.tournamentId,number:r.number,captain:r.captain}),matches:visibleMatches,series:series.filter(s=>ids.has(s.tournamentId)),standings,stats,placements,news,serverTime:new Date().toISOString()};
+    const response:any={community:community[0],demo:process.env.DEMO_SEED==='true',ruleProfiles:{festival:FESTIVAL_RULES,standard:STANDARD_RULES},seasons,tournaments,teams:actor?teams.filter(x=>['superuser','community_admin'].includes(actor.role)||tournaments.some(t=>t.teamIds.includes(x.id))):teams,players,registrations:registrations.map(r=>actor?r:{id:r.id,playerId:r.playerId,teamId:r.teamId,tournamentId:r.tournamentId,number:r.number,captain:r.captain}),matches:visibleMatches,series:series.filter(s=>ids.has(s.tournamentId)),standings,stats,placements,news:news.map(({authorUserId,updatedByUserId,deletedAt,...item})=>item),serverTime:new Date().toISOString()};
     if(actor){response.actor=actor;response.users=['superuser','community_admin'].includes(actor.role)?await m.find(User,{order:{id:'ASC'}}):[];response.assignments=['superuser','community_admin'].includes(actor.role)?await m.find(Assignment):[];}
     return response;
   }
-  statistics(revisions:Revision[],matches:Match[],players:Player[]){
-    const rows=new Map<string,any>(); const matchMap=new Map(matches.map(m=>[m.id,m]));const pmap=new Map(players.map(p=>[p.id,p]));
-    const get=(playerId:number,teamId:number,tournamentId:number)=>{const key=`${tournamentId}:${teamId}:${playerId}`;if(!rows.has(key))rows.set(key,{playerId,teamId,tournamentId,name:name(pmap.get(playerId)!),position:pmap.get(playerId)!.position,games:0,goals:0,assists:0,points:0,penaltyMinutes:0,goalieSeconds:0,goalsAgainst:0,goalieTracked:false});return rows.get(key);};
-    for(const rev of revisions){const match=matchMap.get(rev.matchId);if(!match||rev.protocol.resolution==='technical'||rev.protocol.detailLevel==='score_only')continue;const p=rev.protocol;
-      for(const [team,roster] of [[match.homeTeamId,p.homeRoster],[match.awayTeamId,p.awayRoster]] as const)for(const r of roster)if(r.played){const row=get(r.playerId,team!,match.tournamentId);row.games++;row.name=rev.identities[r.playerId]?.name||row.name;}
+  statistics(revisions:Revision[],matches:Match[],players:Player[],tournaments:Pick<Tournament,'id'|'rules'>[]){
+    const rows=new Map<string,any>(),matchMap=new Map(matches.map(m=>[m.id,m])),pmap=new Map(players.map(p=>[p.id,p]));
+    const rulesMap=new Map(tournaments.map(t=>[t.id,t.rules]));
+    const get=(playerId:number,teamId:number,tournamentId:number)=>{
+      const key=`${tournamentId}:${teamId}:${playerId}`;
+      if(!rows.has(key))rows.set(key,{playerId,teamId,tournamentId,name:name(pmap.get(playerId)!),position:pmap.get(playerId)!.position,games:0,goals:0,assists:0,points:0,penaltyMinutes:0,goalieSeconds:0,knownGoalsAgainst:0,goalieTrackedGames:0,goalieUntrackedGames:0});
+      return rows.get(key);
+    };
+    for(const rev of revisions){
+      const match=matchMap.get(rev.matchId);if(!match||rev.protocol.resolution==='technical'||rev.protocol.detailLevel==='score_only')continue;
+      const p=rev.protocol;
+      for(const [team,roster] of [[match.homeTeamId,p.homeRoster],[match.awayTeamId,p.awayRoster]] as const)for(const r of roster)if(r.played&&r.position!=='G'){
+        const row=get(r.playerId,team!,match.tournamentId);row.games++;row.name=rev.identities[r.playerId]?.name||row.name;
+      }
+      const keeperStats=goalieSummary(p,{homeTeamId:match.homeTeamId!,awayTeamId:match.awayTeamId!},rulesMap.get(match.tournamentId)!);
+      for(const keeper of keeperStats.rows)if(keeper.participated){
+        const row=get(keeper.playerId,keeper.teamId,match.tournamentId);
+        row.position='G';row.games++;row.name=rev.identities[keeper.playerId]?.name||row.name;
+        row.goalieSeconds+=keeper.seconds;row.knownGoalsAgainst+=keeper.knownGoalsAgainst;
+        if(keeper.complete)row.goalieTrackedGames++;else row.goalieUntrackedGames++;
+      }
       for(const goal of p.goals){get(goal.scorerId,goal.teamId,match.tournamentId).goals++;for(const id of [goal.assist1Id,goal.assist2Id])if(id)get(id,goal.teamId,match.tournamentId).assists++;}
       for(const pen of p.penalties)if(pen.playerId)get(pen.playerId,pen.teamId,match.tournamentId).penaltyMinutes+=pen.minutes;
-      for(const shift of p.goalieShifts)if(shift.playerId){const row=get(shift.playerId,shift.teamId,match.tournamentId);row.goalieSeconds+=seconds(shift.to)-seconds(shift.from);row.goalieTracked=true;}
     }
-    return [...rows.values()].map(r=>({...r,points:r.goals+r.assists})).sort((a,b)=>b.points-a.points||b.goals-a.goals||a.name.localeCompare(b.name,'ru'));
+    return [...rows.values()].map(r=>{
+      const goalieTracked=r.position==='G'&&r.goalieTrackedGames>0&&r.goalieUntrackedGames===0;
+      return {...r,points:r.goals+r.assists,goalieTracked,goalsAgainst:goalieTracked?r.knownGoalsAgainst:null,
+        goalsAgainstAverage:goalieTracked&&r.goalieSeconds>0?Math.round(r.knownGoalsAgainst*3600/r.goalieSeconds*100)/100:null};
+    }).sort((a,b)=>b.points-a.points||b.goals-a.goals||a.name.localeCompare(b.name,'ru'));
   }
   async community(actor:Actor,input:any){this.global(actor);const c=(await this.db.manager.find(Community))[0];Object.assign(c,{name:text(input.name),shortName:text(input.shortName,1,20),city:text(input.city),description:text(input.description,0,5000),email:text(input.email,0,200)});await this.db.manager.save(c);await this.audit(actor,'update','community',c.id,null);return c;}
   async tournament(actor:Actor,input:any,id?:number){
@@ -382,5 +402,4 @@ const today=()=>new Date().toISOString().slice(0,10);
     }
     const assigned=await this.db.manager.findBy(Assignment,{tournamentId:id});return {secretaries:users.map(u=>({id:u.id,displayName:u.displayName,username:u.username})),secretaryIds:assigned.filter(a=>users.some(u=>u.id===a.userId)).map(a=>a.userId)};
   }
-  async saveNews(actor:Actor,input:any,id?:number){this.global(actor);const n=id?await this.entity(News,id):new News();Object.assign(n,{title:text(input.title,3,200),body:text(input.body,10,20000),category:text(input.category||'Сообщество',1,50),published:input.published!==false});await this.db.manager.save(News,n);await this.audit(actor,id?'update':'create','news',n.id,null);return n;}
 }

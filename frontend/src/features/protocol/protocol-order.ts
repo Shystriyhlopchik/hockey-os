@@ -12,12 +12,12 @@ export function sortRoster<T extends RosterOrder>(entries: readonly T[]): T[] {
 }
 
 /** Keep the saved sequence and server error numbers separate from the editor's display order. */
-export function newestGoalEntries<T>(goals: readonly T[]) {
-  return goals.map((goal, index) => ({ goal, index })).reverse();
+export function newestEventEntries<T>(events: readonly T[]) {
+  return events.map((event, index) => ({ event, index })).reverse();
 }
 
-export function withoutGoal<T extends { id: string }>(goals: readonly T[], id: string): T[] {
-  return goals.filter((goal) => goal.id !== id);
+export function withoutEvent<T extends { id: string }>(events: readonly T[], id: string): T[] {
+  return events.filter((event) => event.id !== id);
 }
 
 function clock(time: string): number {

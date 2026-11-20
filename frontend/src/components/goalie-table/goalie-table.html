@@ -1,0 +1,46 @@
+<div class="table-wrap">
+  <table aria-label="Статистика вратарей">
+    <thead>
+      <tr>
+        <th>Вратарь / команда</th>
+        <th>И</th>
+        <th>Время на льду</th>
+        <th>Пропущено шайб</th>
+        <th>КН</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (row of displayRows(); track row.tournamentId + ':' + row.teamId + ':' + row.playerId) {
+        <tr>
+          <td>
+            @if (linkPlayers()) {
+              <a [routerLink]="'/players/' + row.playerId"
+                ><b>{{ row.name }}</b></a
+              >
+            } @else {
+              <b>{{ row.name }}</b>
+            }
+            <small
+              >{{ row.teamName }}{{ row.tournamentName ? ' · ' + row.tournamentName : '' }}</small
+            >
+            @if (!row.goalieTracked) {
+              <small class="incomplete">Нет полных данных в протоколах</small>
+            }
+          </td>
+          <td data-label="Игры">{{ row.games }}</td>
+          <td data-label="Время">{{ row.goalieTracked ? time(row.goalieSeconds) : '—' }}</td>
+          <td data-label="Пропущено">{{ row.goalieTracked ? row.goalsAgainst : '—' }}</td>
+          <td data-label="КН">{{ row.goalieTracked ? average(row.goalsAgainstAverage) : '—' }}</td>
+        </tr>
+      } @empty {
+        <tr>
+          <td colspan="5" class="empty">Статистики вратарей по этим фильтрам пока нет.</td>
+        </tr>
+      }
+    </tbody>
+  </table>
+</div>
+<p class="table-note">
+  И — фактическое участие · КН — пропущенные шайбы за 60 минут. «—» означает отсутствие полных
+  данных. Пустые ворота и серия буллитов не входят в личные пропущенные шайбы.
+</p>

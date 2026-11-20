@@ -29,58 +29,7 @@
       href="/news"
       linkLabel="Все новости"
     />
-    <div class="news-layout">
-      @if (news()[0]; as featured) {
-        <a class="featured-story" [routerLink]="'/news/' + featured.id"
-          ><img
-            src="/editorial/hockey-action.png"
-            alt=""
-            width="1774"
-            height="887"
-            fetchpriority="high"
-          /><span class="story-topline"
-            ><span class="category-badge">{{ featured.category }}</span
-            ><small>Иллюстрация</small></span
-          >
-          <div class="story-caption">
-            <span
-              >{{ vm.date(featured.createdAt, { day: 'numeric', month: 'long' }) }}
-              <i> / </i> Чебоксарская ХЛ</span
-            >
-            <h2>{{ featured.title }}</h2>
-            <p>{{ featured.body.slice(0, 120) }}{{ featured.body.length > 120 ? '…' : '' }}</p>
-            <b>Читать новость <span>↗</span></b>
-          </div></a
-        >
-      } @else {
-        <div class="featured-story empty-story">
-          <img src="/editorial/hockey-action.png" alt="" width="1774" height="887" />
-          <div class="story-caption">
-            <span>ЧЕБОКСАРСКАЯ ХЛ</span>
-            <h2>НАШ ГОРОД.<br />НАШ ХОККЕЙ.</h2>
-            <p>Новости лиги скоро появятся здесь.</p>
-          </div>
-        </div>
-      }
-      <div class="news-feed">
-        <div class="feed-label">В ЦЕНТРЕ ВНИМАНИЯ <span>↗</span></div>
-        @for (item of news().slice(1, 5); track item.id; let i = $index) {
-          <a [routerLink]="'/news/' + item.id"
-            ><span class="news-thumb" [class.rink-thumb]="i % 2 === 1"
-              ><span>{{ i % 2 === 0 ? 'ЧХЛ' : 'НА ЛЁД' }}</span
-              ><b>{{ i + 1 < 10 ? '0' + (i + 1) : i + 1 }}</b></span
-            ><span class="news-feed-text"
-              ><small>{{ item.category }}</small>
-              <h3>{{ item.title }}</h3>
-              <time>{{ vm.date(item.createdAt) }}</time></span
-            ><span class="news-arrow">↗</span></a
-          >
-        } @empty {
-          <p class="muted">Следите за обновлениями лиги.</p>
-        }
-        <a class="news-all" routerLink="/news">Все новости лиги <span>→</span></a>
-      </div>
-    </div>
+    <app-news-preview [limit]="6" />
   </section>
   <section class="season-section" aria-labelledby="statistics-title">
     <div class="statistics-heading">
@@ -189,6 +138,7 @@
       />
     </div>
   </section>
+  <app-partner-showcase [partners]="partners" />
   <section class="arenas-section">
     <app-section-heading title="Наш лёд" eyebrow="ДОМАШНИЕ АРЕНЫ ЛИГИ" />
     <div class="arenas-layout">

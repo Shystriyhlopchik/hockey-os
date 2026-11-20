@@ -1,0 +1,51 @@
+name: hockey-os-local
+
+services:
+  database:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: hockey
+      POSTGRES_PASSWORD: hockey_local_2026
+      POSTGRES_DB: hockey_os
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hockey -d hockey_os"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+  app:
+    image: hockey-os-app:local
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runner
+    init: true
+    environment:
+      NODE_ENV: development
+      HOST: 0.0.0.0
+      PORT: "4100"
+      UPLOAD_DIR: /app/uploads
+      DATABASE_URL: postgresql://hockey:hockey_local_2026@database:5432/hockey_os
+      JWT_SECRET: local-development-session-key-for-hockey-os-only
+      FRONTEND_ORIGIN: http://localhost:${HOCKEY_LOCAL_PORT:-8082}
+      DEMO_SEED: "true"
+      DEMO_PASSWORD: Hockey2026!
+    volumes:
+      - news_uploads:/app/uploads
+    ports:
+      - "127.0.0.1:${HOCKEY_LOCAL_PORT:-8082}:4100"
+    depends_on:
+      database:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4100/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 30s
+
+volumes:
+  news_uploads:
+  postgres_data:

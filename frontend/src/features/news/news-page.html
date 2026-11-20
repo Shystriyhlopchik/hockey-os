@@ -1,27 +1,59 @@
-<section class="content-section">
-  @if (vm.entityId()) {
-    @for (n of vm.data().news; track n.id) {
-      @if (n.id === vm.entityId()) {
-        <article class="article">
-          <a class="back-link" routerLink="/news">← Все новости</a
-          ><span class="eyebrow">{{ n.category }} · {{ vm.date(n.createdAt) }}</span>
-          <h1>{{ n.title }}</h1>
-          <p>{{ n.body }}</p>
+<section class="content-section news-page">
+  @if (state(); as state) {
+    @if (state.loading) {
+      <div class="empty" role="status">Загружаем новости…</div>
+    } @else if (state.error) {
+      <div class="empty panel" role="alert">
+        <h1>{{ state.error }}</h1>
+        <a class="btn secondary" routerLink="/news">Все новости</a
+        ><button class="btn secondary" (click)="retry.set(retry() + 1)">Повторить</button>
+      </div>
+    } @else {
+      @if (state.article; as item) {
+        <article class="news-article">
+          <a class="back-link" routerLink="/news">← Все новости</a>
+          <div class="article-meta">
+            <span class="eyebrow">{{ item.category }}</span
+            ><time [attr.datetime]="item.publishedAt || item.createdAt">{{
+              item.publishedAt || item.createdAt | date: 'dd.MM.yyyy' : '+0300'
+            }}</time>
+          </div>
+          <h1>{{ item.title }}</h1>
+          @if (item.coverUrl && failedCover() !== item.coverUrl) {
+            <img
+              class="article-cover"
+              [src]="item.coverUrl"
+              [alt]="item.title"
+              (error)="failedCover.set(item.coverUrl)"
+            />
+          }
+          @if (item.excerpt) {
+            <p class="article-excerpt">{{ item.excerpt }}</p>
+          }
+          <div class="article-body">
+            @for (paragraph of paragraphs(); track $index) {
+              <p>{{ paragraph }}</p>
+            }
+          </div>
         </article>
       }
-    }
-  } @else {
-    <span class="eyebrow">ВОКРУГ ЛЬДА</span>
-    <h1>Жизнь сообщества<span class="accent-dot">.</span></h1>
-    <div class="news-grid">
-      @for (n of vm.data().news; track n.id) {
-        <a class="panel news-text-card" [routerLink]="'/news/' + n.id"
-          ><span class="eyebrow">{{ n.category }}</span>
-          <h2>{{ n.title }}</h2>
-          <p>{{ n.body.slice(0, 180) }}…</p>
-          <span class="text-accent">Читать ↗</span></a
-        >
+      @if (state.result; as result) {
+        <span class="eyebrow">ВОКРУГ ЛЬДА</span>
+        <h1>Жизнь сообщества<span class="accent-dot">.</span></h1>
+        <div class="news-page-grid">
+          @for (item of result.items; track item.id) {
+            <app-news-card [news]="item" variant="large" />
+          } @empty {
+            <div class="empty panel">Новостей пока нет.</div>
+          }
+        </div>
+        <app-news-pagination
+          [page]="result.page"
+          [total]="result.total"
+          [limit]="result.limit"
+          (pageChange)="changePage($event)"
+        />
       }
-    </div>
+    }
   }
 </section>

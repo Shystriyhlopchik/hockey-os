@@ -1,3 +1,4 @@
+import {AppService} from './app.service';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {ageOn,roundRobin,FESTIVAL_RULES,STANDARD_RULES,emptyProtocol,resolveProtocol,calculateStandings,validateRules,validateProtocolShape,protocolInMatchTime,sortProtocolRoster,chronologicalProtocolGoals,Protocol,Rules} from './domain';
@@ -154,4 +155,32 @@ test('Выгрузка сортирует состав и время событ�
   const saved=structuredClone(events);
   assert.deepEqual(chronologicalProtocolGoals(events).map(goal=>goal.time),['9:00','10:00','21:00','42:00']);
   assert.deepEqual(events,saved);
+});
+
+test('Строгий протокол требует полные интервалы, старый формат остаётся читаемым',()=>{
+  const p=protocol();goal(p);assert.equal(resolveProtocol(p,match,rules).homeScore,1);
+  p.goalieStatsVersion=1;assert.throws(()=>resolveProtocol(p,match,rules),/интервалы/);
+  p.goalieShifts=[{teamId:1,playerId:1,from:'00:00',to:'45:00'},{teamId:2,playerId:11,from:'00:00',to:'45:00'}];
+  assert.equal(resolveProtocol(p,match,rules).homeScore,1);p.goals[0].goalieId=1;assert.throws(()=>resolveProtocol(p,match,rules),/не согласованы/);
+});
+test('Строгий протокол разрешает уточнить вратаря при замене в секунду гола',()=>{
+  const p=protocol();p.timeBasis='match';p.goalieStatsVersion=1;p.homeRoster.push({playerId:5,number:5,position:'G',captain:'',played:true});goal(p,2,2,'25:00');
+  p.goalieShifts=[{teamId:1,playerId:1,from:'00:00',to:'25:00'},{teamId:1,playerId:5,from:'25:00',to:'45:00'},{teamId:2,playerId:11,from:'00:00',to:'45:00'}];
+  assert.throws(()=>resolveProtocol(p,match,rules),/совпал/);p.goals[0].goalieId=1;assert.equal(resolveProtocol(p,match,rules).awayScore,1);
+});
+
+test('КН суммирует шайбы и секунды всех матчей, а не средние коэффициенты; неполный матч не даёт ложный ноль',()=>{
+  const first=protocol();first.timeBasis='match';goal(first,2,1,'03:00');goal(first,2,2,'21:00');
+  first.goalieShifts=[{teamId:1,playerId:1,from:'00:00',to:'45:00'},{teamId:2,playerId:11,from:'00:00',to:'45:00'}];
+  const second=protocol();second.timeBasis='match';second.homeRoster.push({playerId:5,number:5,position:'G',captain:'',played:true});
+  for(const time of ['03:00','06:00','09:00'])goal(second,2,1,time);
+  second.goalieShifts=[{teamId:1,playerId:1,from:'00:00',to:'15:00'},{teamId:1,playerId:5,from:'15:00',to:'45:00'},{teamId:2,playerId:11,from:'00:00',to:'45:00'}];
+  const players=[1,2,3,4,5,11,12,13,14].map(id=>({id,lastName:'Тест'+id,firstName:'Имя',middleName:'',position:[1,5,11].includes(id)?'G':'F'}));
+  const app=new AppService({} as any),games=[1,2,3].map(id=>({...match,id,tournamentId:1}));
+  const revisions=[first,second].map((p,index)=>({matchId:index+1,protocol:p,identities:{}}));
+  let stats=app.statistics(revisions as any,games as any,players as any,[{id:1,rules}]);
+  let keeper=stats.find(row=>row.playerId===1);assert.equal(keeper.games,2);assert.equal(keeper.goalieSeconds,3600);assert.equal(keeper.goalsAgainst,5);assert.equal(keeper.goalsAgainstAverage,5);
+  const missing=protocol();goal(missing,2);revisions.push({matchId:3,protocol:missing,identities:{}});
+  stats=app.statistics(revisions as any,games as any,players as any,[{id:1,rules}]);keeper=stats.find(row=>row.playerId===1);
+  assert.equal(keeper.goalsAgainst,null);assert.equal(keeper.goalsAgainstAverage,null);assert.equal(keeper.knownGoalsAgainst,5);assert.equal(keeper.goalieUntrackedGames,1);assert.equal(keeper.goalieTrackedGames,2);
 });

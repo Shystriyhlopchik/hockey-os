@@ -3,7 +3,7 @@ import type {Protocol} from './domain';
 // The same paths drive saved-history checks and locks taken before saving a protocol.
 const playerPaths:readonly (readonly string[])[]=[
   ['homeRoster','playerId'],['awayRoster','playerId'],
-  ['goals','scorerId'],['goals','assist1Id'],['goals','assist2Id'],['goals','homeOnIce'],['goals','awayOnIce'],
+  ['goals','scorerId'],['goals','assist1Id'],['goals','assist2Id'],['goals','goalieId'],['goals','homeOnIce'],['goals','awayOnIce'],
   ['penalties','playerId'],['penalties','servedById'],['goalieShifts','playerId'],
   ['shootout','playerId'],['shootout','goalieId'],['sheet','missedShots','playerId'],['sheet','missedShots','goalieId'],
 ];

@@ -65,7 +65,7 @@
           <span class="eyebrow">Кабинет / {{ vm.data().community.city }}</span>
           <h1>{{ vm.title() }}</h1>
         </div>
-        @if (vm.section() !== 'protocol') {
+        @if (vm.section() !== 'protocol' && vm.section() !== 'news') {
           <label class="select-label"
             >Текущий турнир<select
               [ngModel]="vm.tournament()?.id"

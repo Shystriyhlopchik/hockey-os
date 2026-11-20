@@ -92,6 +92,16 @@ export const routes: Routes = [
           import('./features/office/office-users').then((module) => module.OfficeUsers),
       },
       {
+        path: 'news/new',
+        loadComponent: () =>
+          import('./features/news/news-editor').then((module) => module.NewsEditor),
+      },
+      {
+        path: 'news/:id/edit',
+        loadComponent: () =>
+          import('./features/news/news-editor').then((module) => module.NewsEditor),
+      },
+      {
         path: 'news',
         loadComponent: () =>
           import('./features/office/office-news').then((module) => module.OfficeNews),

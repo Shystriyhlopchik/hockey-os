@@ -1,0 +1,115 @@
+:host {
+  display: block;
+}
+.editor-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 22px;
+}
+.editor-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(240px, 1fr);
+  gap: 20px;
+}
+.editor-main,
+.editor-side {
+  min-width: 0;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+fieldset {
+  padding: 0;
+  margin: 0;
+  border: 0;
+  min-width: 0;
+}
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  font-weight: 700;
+}
+input,
+textarea {
+  width: 100%;
+  max-width: 100%;
+  font-weight: 400;
+}
+textarea {
+  resize: vertical;
+}
+small {
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 400;
+  line-height: 1.6;
+}
+.field-error {
+  color: #ff8498;
+}
+.cover-preview {
+  width: 100%;
+  aspect-ratio: 16/9;
+  object-fit: cover;
+}
+.cover-empty {
+  padding: 30px 18px;
+  border: 1px dashed var(--border);
+  color: var(--muted);
+  text-align: center;
+}
+.editor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 22px 0;
+}
+.message {
+  padding: 16px;
+  border-left: 3px solid var(--accent);
+  background: var(--surface);
+  margin: 16px 0;
+}
+.editor-preview {
+  padding: 28px;
+  margin-top: 24px;
+}
+.editor-preview h1 {
+  font-size: 36px;
+  overflow-wrap: anywhere;
+}
+.editor-preview > img {
+  width: 100%;
+  max-height: 480px;
+  object-fit: contain;
+}
+.preview-body {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 16px;
+  line-height: 1.9;
+}
+.preview-excerpt {
+  font-size: 18px;
+  color: var(--muted);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 900px) {
+  .editor-grid {
+    grid-template-columns: 1fr;
+  }
+  .editor-main,
+  .editor-side {
+    padding: 18px;
+  }
+  .editor-actions .btn {
+    flex: 1 1 180px;
+  }
+  .editor-preview {
+    padding: 18px;
+  }
+}

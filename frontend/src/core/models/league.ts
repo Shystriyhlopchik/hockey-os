@@ -51,14 +51,34 @@ export interface PlayerStat {
   assists: number;
   points: number;
   penaltyMinutes: number;
+  goalieSeconds?: number;
+  goalieTracked?: boolean;
+  goalsAgainst?: number | null;
+  goalsAgainstAverage?: number | null;
+  goalieTrackedGames?: number;
+  goalieUntrackedGames?: number;
 }
-export interface NewsItem {
+export interface NewsSummary {
   id: number;
   title: string;
-  body: string;
   category: string;
-  published: boolean;
+  slug: string;
+  excerpt: string;
+  coverUrl: string | null;
+  publishedAt: string | null;
   createdAt: string;
+  updatedAt?: string;
+  published?: boolean;
+  slugLocked?: boolean;
+}
+export interface NewsItem extends NewsSummary {
+  body: string;
+}
+export interface NewsPageResult {
+  items: NewsSummary[];
+  total: number;
+  page: number;
+  limit: number;
 }
 export interface Actor {
   id: number;

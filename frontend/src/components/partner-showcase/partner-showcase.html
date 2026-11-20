@@ -1,0 +1,72 @@
+@if (selected(); as activePartner) {
+  <section class="partner-showcase" [attr.aria-labelledby]="headingId()">
+    <div class="showcase-heading">
+      <div>
+        <span class="eyebrow">Вместе делаем игру возможной</span>
+        <h2 [id]="headingId()">Команда <em>за командой</em></h2>
+      </div>
+      <span class="showcase-label">Партнёры ЧХЛ</span>
+    </div>
+    <div [id]="storyId()" class="partner-story" aria-live="polite" aria-atomic="true">
+      @for (partner of [activePartner]; track partner.id) {
+        <article class="partner-feature" [attr.aria-label]="partner.name">
+          <div class="partner-copy">
+            <span class="partner-name">{{ partner.name }}</span>
+            <h3>{{ partner.headline }}</h3>
+            <p>{{ partner.description }}</p>
+            <div class="partner-highlight">
+              <strong>{{ partner.highlight }}</strong>
+              <span>{{ partner.highlightLabel }}</span>
+            </div>
+            @if (partner.link; as link) {
+              <a [href]="link.href" target="_blank" rel="noopener noreferrer">
+                {{ link.label }}<span class="sr-only"> — откроется в новой вкладке</span>
+              </a>
+            }
+          </div>
+          <div class="partner-art">
+            <span class="art-label">Вместе с лигой</span>
+            <div class="logo-plate">
+              <img
+                [src]="partner.logo"
+                [alt]="'Логотип ' + partner.name"
+                [width]="partner.logoWidth"
+                [height]="partner.logoHeight"
+                loading="lazy"
+                decoding="async"
+              />
+            </div>
+            <span class="art-caption">Сила партнёрства — в общей игре</span>
+          </div>
+        </article>
+      }
+    </div>
+    <div class="partner-selector" role="group" aria-label="Познакомиться с партнёрами лиги">
+      @for (partner of partners(); track partner.id) {
+        <button
+          type="button"
+          class="partner-button"
+          [attr.aria-pressed]="activePartner.id === partner.id"
+          [attr.aria-controls]="storyId()"
+          [attr.aria-label]="'Познакомиться с партнёром: ' + partner.name"
+          (click)="selectPartner(partner.id)"
+        >
+          <span class="selector-logo">
+            <img
+              [src]="partner.logo"
+              alt=""
+              [width]="partner.logoWidth"
+              [height]="partner.logoHeight"
+              loading="lazy"
+              decoding="async"
+            />
+          </span>
+          <span class="selector-name">{{ partner.name }}</span>
+          <span class="selection-label">{{
+            activePartner.id === partner.id ? 'Выбран' : 'О бренде'
+          }}</span>
+        </button>
+      }
+    </div>
+  </section>
+}

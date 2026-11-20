@@ -1,0 +1,33 @@
+@if (state(); as state) {
+  @if (state.loading) {
+    <div class="empty" role="status">Загружаем новости…</div>
+  } @else if (state.error) {
+    <div class="empty" role="alert">
+      {{ state.error }}
+      <button class="btn secondary compact" (click)="retry.set(retry() + 1)">Повторить</button>
+    </div>
+  } @else {
+    <div class="news-preview" [class.single]="state.items.length === 1">
+      @if (state.items[0]; as featured) {
+        <app-news-card class="featured" [news]="featured" variant="large" />
+      }
+      @if (state.items.length > 1) {
+        <div class="side">
+          @for (item of state.items.slice(1, 4); track item.id) {
+            <app-news-card [news]="item" />
+          }
+        </div>
+      }
+      @if (state.items.length > 4) {
+        <div class="remaining">
+          @for (item of state.items.slice(4); track item.id) {
+            <app-news-card [news]="item" />
+          }
+        </div>
+      }
+    </div>
+    @if (!state.items.length) {
+      <div class="empty panel">Новости лиги скоро появятся здесь.</div>
+    }
+  }
+}

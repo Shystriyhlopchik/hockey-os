@@ -69,7 +69,7 @@ try{
   ok('Любая опубликованная версия защищает игрока, даже если последующее исправление уже не содержит его в составе');
   const target=initial.matches.find(m=>m.status==='scheduled'&&m.tournamentId===t1.id);
   const sheet={matchNumber:'',city:'',startedAt:'',endedAt:'',homeStaff:{headCoach:'',coach:'',manager:'',representative:''},awayStaff:{headCoach:'',coach:'',manager:'',representative:''},officials:{},timeouts:[],missedShots:[],disciplinaryNotes:'',matchNotes:'',injuryNotes:'',protestNotes:''};
-  const paths=[['homeRoster','playerId'],['awayRoster','playerId'],['goals','scorerId'],['goals','assist1Id'],['goals','assist2Id'],['goals','homeOnIce'],['goals','awayOnIce'],['penalties','playerId'],['penalties','servedById'],['goalieShifts','playerId'],['shootout','playerId'],['shootout','goalieId'],['sheet','missedShots','playerId'],['sheet','missedShots','goalieId']];
+  const paths=[['homeRoster','playerId'],['awayRoster','playerId'],['goals','scorerId'],['goals','assist1Id'],['goals','assist2Id'],['goals','goalieId'],['goals','homeOnIce'],['goals','awayOnIce'],['penalties','playerId'],['penalties','servedById'],['goalieShifts','playerId'],['shootout','playerId'],['shootout','goalieId'],['sheet','missedShots','playerId'],['sheet','missedShots','goalieId']];
   for(const path of paths){
     const p=await create(),protocol=emptyProtocol();
     const key=path.at(-1),item={[key]:key.endsWith('OnIce')?[p.id]:p.id};
@@ -78,7 +78,7 @@ try{
     const blocked=await info(p.id);assert.equal(blocked.canDelete,false,path.join('.'));assert.ok(blocked.references.some(m=>m.id===target.id&&m.draft));await remove(p.id,blocked.version,409);
     await draft(target.id,emptyProtocol());await remove(p.id,(await info(p.id)).version);
   }
-  ok('Черновики защищают все 14 ссылок на игрока: составы, голы и ассисты, игроки на льду, штрафы, вратари и штрафные броски');
+  ok('Черновики защищают все 15 ссылок на игрока: составы, голы и ассисты, игроки на льду, штрафы, вратари и штрафные броски');
   const unrelated=await create();const numeric=emptyProtocol();numeric.goals=[{teamId:unrelated.id,period:unrelated.id,id:String(unrelated.id)}];await draft(target.id,numeric);
   assert.equal((await info(unrelated.id)).canDelete,true);await remove(unrelated.id,(await info(unrelated.id)).version);await draft(target.id,emptyProtocol());
   ok('Совпадение ID с номером периода, команды или события не блокирует удаление постороннего игрока');

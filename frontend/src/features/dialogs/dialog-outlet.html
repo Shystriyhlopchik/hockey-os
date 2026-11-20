@@ -61,13 +61,11 @@
                             ? 'Календарь и площадка'
                             : vm.modal() === 'playoff'
                               ? 'Запуск плей-офф'
-                              : vm.modal() === 'news'
-                                ? 'Новость сообщества'
-                                : vm.modal() === 'season'
-                                  ? 'Новый сезон'
-                                  : vm.modal() === 'staff'
-                                    ? 'Назначение секретарей'
-                                    : 'Настройки сообщества'
+                              : vm.modal() === 'season'
+                                ? 'Новый сезон'
+                                : vm.modal() === 'staff'
+                                  ? 'Назначение секретарей'
+                                  : 'Настройки сообщества'
         }}
       </h2>
       @if (vm.error()) {
@@ -832,36 +830,6 @@
               rows="4"
             ></textarea>
           </label>
-        }
-        @if (vm.modal() === 'news') {
-          <label
-            >Заголовок<input
-              name="title"
-              [ngModel]="vm.form().title"
-              (ngModelChange)="vm.patchForm(['title'], $event)"
-              required /></label
-          ><label
-            >Раздел<input
-              name="category"
-              [ngModel]="vm.form().category"
-              (ngModelChange)="vm.patchForm(['category'], $event)"
-              required /></label
-          ><label
-            >Текст<textarea
-              name="body"
-              [ngModel]="vm.form().body"
-              (ngModelChange)="vm.patchForm(['body'], $event)"
-              rows="8"
-              required
-            ></textarea></label
-          ><label class="check-label"
-            ><input
-              name="published"
-              type="checkbox"
-              [ngModel]="vm.form().published"
-              (ngModelChange)="vm.patchForm(['published'], $event)"
-            />Опубликовано</label
-          >
         }
         @if (vm.modal() === 'season') {
           <label

@@ -71,6 +71,14 @@ export class Base { @PrimaryGeneratedColumn() id:number; @CreateDateColumn({type
 }
 @Entity('news') export class News extends Base {
   @Column() title:string; @Column({type:'text'}) body:string; @Column({default:'Сообщество'}) category:string;
-  @Column({default:true}) published:boolean;
+  @Column({default:false}) published:boolean;
+  @Column({type:'varchar',length:200,nullable:true,unique:true}) slug:string|null;
+  @Column({type:'text',default:''}) excerpt:string;
+  @Column({type:'varchar',nullable:true}) coverUrl:string|null;
+  @Column({type:'timestamptz',nullable:true}) publishedAt:Date|null;
+  @Column({default:false}) slugLocked:boolean;
+  @Column({type:'int',nullable:true}) authorUserId:number|null;
+  @Column({type:'int',nullable:true}) updatedByUserId:number|null;
+  @Column({type:'timestamptz',nullable:true}) deletedAt:Date|null;
 }
 export const ENTITIES=[Community,Season,User,Assignment,Team,Player,Tournament,Registration,Series,Match,Revision,Audit,News];

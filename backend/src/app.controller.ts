@@ -1,3 +1,4 @@
+import {goalieSummary,formatGoalieTime} from '../../shared/goalie-statistics.js';
 import {Controller,Get,Post,Patch,Delete,Body,Param,Req,Res,ParseIntPipe,UnauthorizedException,HttpCode} from '@nestjs/common';
 import {JwtService} from '@nestjs/jwt';
 import type {Response} from 'express';
@@ -51,8 +52,6 @@ import {sortProtocolRoster,chronologicalProtocolGoals} from './domain';
   @Get('workspace/audit') audit(@Req() r:AuthRequest){return this.app.auditLog(r.actor);}
   @Get('workspace/tournaments/:id/staff') staff(@Param('id',ParseIntPipe) id:number,@Req() r:AuthRequest){return this.app.staff(r.actor,id);}
   @Patch('workspace/tournaments/:id/staff') assignStaff(@Param('id',ParseIntPipe) id:number,@Body() b:any,@Req() r:AuthRequest){return this.app.staff(r.actor,id,b.secretaryIds);}
-  @Post('workspace/news') createNews(@Body() b:any,@Req() r:AuthRequest){return this.app.saveNews(r.actor,b);}
-  @Patch('workspace/news/:id') news(@Param('id',ParseIntPipe) id:number,@Body() b:any,@Req() r:AuthRequest){return this.app.saveNews(r.actor,b,id);}
   @Public() @Get('matches/:id/export.xlsx') async export(@Param('id',ParseIntPipe) id:number,@Res() res:Response){return this.exportWorkbook(id,res);}
   @Get('workspace/matches/:id/export.xlsx') async exportStaff(@Param('id',ParseIntPipe) id:number,@Res() res:Response,@Req() r:AuthRequest){return this.exportWorkbook(id,res,r.actor);}
   private async exportWorkbook(id:number,res:Response,actor?:AuthRequest['actor']){
@@ -74,6 +73,9 @@ import {sortProtocolRoster,chronologicalProtocolGoals} from './domain';
     sheet.addRow([]);sheet.addRow(['УДАЛЕНИЯ']);sheet.addRow(['Период','Время матча','Команда','Игрок','Минуты','Нарушение','Отбывал','Начало','Окончание']);for(const e of p.penalties)sheet.addRow([e.period,e.time,team(e.teamId),identity(e.playerId),e.kind==='penalty_shot'?'ШБ':e.minutes,e.code,identity(e.servedById),e.start||'',e.end||'']);
     const back=wb.addWorksheet('Дополнения',{pageSetup:{paperSize:9,fitToPage:true,fitToWidth:1,fitToHeight:0}});back.columns=[{width:26},{width:38},{width:30},{width:30},{width:25}];
     back.addRow(['ВРАТАРИ']);back.addRow(['Команда','Вратарь','Начало','Окончание']);for(const g of p.goalieShifts)back.addRow([team(g.teamId),g.playerId?identity(g.playerId):'Пустые ворота',g.from,g.to]);
+    const keeperStats=goalieSummary(p,{homeTeamId:match.homeTeamId!,awayTeamId:match.awayTeamId!},data.tournament.rules);
+    back.addRow([]);back.addRow(['СТАТИСТИКА ВРАТАРЕЙ']);back.addRow(['Команда','Вратарь','Время на льду','Пропущено шайб']);
+    for(const keeper of keeperStats.rows)back.addRow([team(keeper.teamId),identity(keeper.playerId),keeper.complete?formatGoalieTime(keeper.seconds):'Нет данных',keeper.complete?keeper.goalsAgainst:'Нет данных']);
     back.addRow([]);back.addRow(['СЕРИЯ БРОСКОВ']);for(const s of p.shootout)back.addRow([team(s.teamId),identity(s.playerId),identity(s.goalieId),s.scored?'Гол':'Нет гола']);
     back.addRow([]);back.addRow(['Главный судья',p.referee]);back.addRow(['Зрители',p.spectators]);back.addRow(['Замечания',p.notes]);if(p.resolution==='technical')back.addRow(['Техническое решение',p.technicalReason]);
     if(p.sheet){

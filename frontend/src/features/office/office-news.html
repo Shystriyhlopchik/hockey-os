@@ -1,14 +1,92 @@
-<div class="toolbar">
-  <button class="btn primary" (click)="vm.open('news')">+ Добавить новость</button>
-</div>
-<div class="news-grid">
-  @for (n of vm.work().news; track n.id) {
-    <article class="panel">
-      <span class="eyebrow">{{ n.category }}</span>
-      <h2>{{ n.title }}</h2>
-      <p>{{ n.body }}</p>
-      <button class="btn secondary compact" (click)="vm.open('news', n)">Редактировать</button
-      ><span class="badge">{{ n.published ? 'Опубликовано' : 'Черновик' }}</span>
-    </article>
+@if (!vm.canGlobal()) {
+  <div class="empty panel">
+    Управление новостями доступно администратору сообщества и суперпользователю.
+  </div>
+} @else {
+  <div class="news-toolbar">
+    <a class="btn primary" routerLink="/office/news/new">+ Добавить новость</a
+    ><label
+      >Статус<select [ngModel]="status()" (ngModelChange)="setFilter($event, 'status')">
+        <option value="all">Все новости</option>
+        <option value="draft">Черновики</option>
+        <option value="published">Опубликованные</option>
+      </select></label
+    ><label
+      >Поиск<input
+        type="search"
+        placeholder="Заголовок новости"
+        [ngModel]="search()"
+        (ngModelChange)="setFilter($event, 'search')"
+    /></label>
+  </div>
+  @if (error()) {
+    <div class="inline-error" role="alert">{{ error() }}</div>
   }
-</div>
+  @if (state(); as state) {
+    @if (state.loading) {
+      <p role="status">Загружаем новости…</p>
+    } @else if (state.error) {
+      <div class="inline-error" role="alert">
+        {{ state.error }}
+        <button class="btn secondary compact" (click)="reload.set(reload() + 1)">Повторить</button>
+      </div>
+    } @else {
+      <div class="management-list">
+        @for (item of state.items; track item.id) {
+          <article class="panel management-item">
+            <div class="management-cover">
+              @if (item.coverUrl) {
+                <img [src]="item.coverUrl" alt="" loading="lazy" />
+              } @else {
+                <img class="placeholder" src="/branding/chhl-logo.png" alt="" />
+              }
+            </div>
+            <div class="management-copy">
+              <div class="item-heading">
+                <h2>{{ item.title }}</h2>
+                <span class="badge" [class.published]="item.published">{{
+                  item.published ? 'Опубликована' : 'Черновик'
+                }}</span>
+              </div>
+              <p>{{ item.excerpt }}</p>
+              <small
+                >{{ item.category }} · Изменена
+                {{ item.updatedAt | date: 'dd.MM.yyyy HH:mm' : '+0300' }}
+                @if (item.publishedAt) {
+                  · Первая публикация {{ item.publishedAt | date: 'dd.MM.yyyy' : '+0300' }}
+                }
+              </small>
+              <div class="item-actions">
+                <a class="btn secondary compact" [routerLink]="['/office/news', item.id, 'edit']"
+                  >Редактировать</a
+                ><button
+                  class="btn secondary compact"
+                  [disabled]="processing()"
+                  (click)="publication(item)"
+                >
+                  {{ item.published ? 'Снять с публикации' : 'Опубликовать' }}
+                </button>
+                @if (item.published) {
+                  <a class="text-accent" [routerLink]="['/news', item.slug || item.id]"
+                    >На сайте ↗</a
+                  >
+                }
+                <button class="delete-news" [disabled]="processing()" (click)="remove(item)">
+                  Удалить
+                </button>
+              </div>
+            </div>
+          </article>
+        } @empty {
+          <div class="empty panel">Новостей по выбранным условиям нет.</div>
+        }
+      </div>
+      <app-news-pagination
+        [page]="state.page"
+        [total]="state.total"
+        [limit]="state.limit"
+        (pageChange)="page.set($event)"
+      />
+    }
+  }
+}

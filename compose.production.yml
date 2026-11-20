@@ -40,11 +40,14 @@ services:
       NODE_ENV: production
       HOST: 0.0.0.0
       PORT: "4100"
+      UPLOAD_DIR: /app/uploads
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@database:5432/${POSTGRES_DB}
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env.production}
       FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:?Set FRONTEND_ORIGIN in .env.production}
       DEMO_SEED: "false"
       DEMO_PASSWORD: ${INITIAL_ADMIN_PASSWORD:?Set INITIAL_ADMIN_PASSWORD in .env.production}
+    volumes:
+      - news_uploads:/app/uploads
     ports:
       - "127.0.0.1:${APP_BIND_PORT:-8082}:4100"
     depends_on:
@@ -69,6 +72,7 @@ services:
     logging: *default-logging
 
 volumes:
+  news_uploads:
   postgres_data:
 
 networks:

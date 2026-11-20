@@ -2,9 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   sortRoster,
-  newestGoalEntries,
+  newestEventEntries,
   chronologicalGoals,
-  withoutGoal,
+  withoutEvent,
 } from './protocol-order.ts';
 
 test('Both goalie numbers precede skaters, with ascending numbers inside each group', () => {
@@ -32,16 +32,16 @@ const goals = [
 ];
 
 test('The newest entry stays first even if the secretary enters an earlier match time', () => {
-  const rows = newestGoalEntries(goals);
+  const rows = newestEventEntries(goals);
   assert.deepEqual(
-    rows.map((row) => [row.goal.id, row.index]),
+    rows.map((row) => [row.event.id, row.index]),
     [
       ['entered-later', 2],
       ['second', 1],
       ['first', 0],
     ],
   );
-  assert.equal(rows[0].goal, goals[2]);
+  assert.equal(rows[0].event, goals[2]);
   assert.deepEqual(
     goals.map((goal) => goal.id),
     ['first', 'second', 'entered-later'],
@@ -49,14 +49,14 @@ test('The newest entry stays first even if the secretary enters an earlier match
 });
 
 test('Deleting the top visible goal removes its ID rather than the oldest stored event', () => {
-  const top = newestGoalEntries(goals)[0];
-  const remaining = withoutGoal(goals, top.goal.id);
+  const top = newestEventEntries(goals)[0];
+  const remaining = withoutEvent(goals, top.event.id);
   assert.deepEqual(
     remaining.map((goal) => goal.id),
     ['first', 'second'],
   );
   assert.deepEqual(
-    newestGoalEntries(remaining).map((row) => row.goal.id),
+    newestEventEntries(remaining).map((row) => row.event.id),
     ['second', 'first'],
   );
   assert.equal(goals.length, 3);
@@ -81,4 +81,37 @@ test('Public and printed events are chronological, independent of the entry orde
     samePeriod.map((goal) => goal.id),
     ['later', 'earlier', 'same-time', 'incomplete'],
   );
+});
+
+test('Penalty display keeps entry order and original indexes without changing saved events', () => {
+  const penalties = [
+    { id: 'oldest', period: 2, time: '22:00', minutes: 2 },
+    { id: 'middle', period: 3, time: '42:00', minutes: 10 },
+    { id: 'newest', period: 1, time: '08:00', minutes: 5 },
+  ];
+  const original = structuredClone(penalties);
+  const visible = newestEventEntries(penalties);
+  assert.deepEqual(
+    visible.map(({ event, index }) => [event.id, index]),
+    [
+      ['newest', 2],
+      ['middle', 1],
+      ['oldest', 0],
+    ],
+  );
+  for (const { event } of visible) {
+    const remaining = withoutEvent(penalties, event.id);
+    assert.equal(remaining.length, 2);
+    assert.ok(remaining.every((penalty) => penalty.id !== event.id));
+    assert.deepEqual(
+      remaining,
+      original.filter((penalty) => penalty.id !== event.id),
+    );
+  }
+  const afterTopRemoval = withoutEvent(penalties, visible[0].event.id);
+  assert.deepEqual(
+    newestEventEntries(afterTopRemoval).map((row) => row.event.id),
+    ['middle', 'oldest'],
+  );
+  assert.deepEqual(penalties, original);
 });

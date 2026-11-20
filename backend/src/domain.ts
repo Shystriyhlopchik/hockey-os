@@ -1,3 +1,4 @@
+import {goalieSummary} from '../../shared/goalie-statistics.js';
 export type Role = 'superuser' | 'community_admin' | 'tournament_admin' | 'secretary';
 export type Position = 'G' | 'D' | 'F';
 export type Qualification = 'novice' | 'amateur' | 'school' | 'former_master';
@@ -20,12 +21,13 @@ export const FESTIVAL_RULES: Rules = {
 export const STANDARD_RULES: Rules = {...FESTIVAL_RULES, profile: 'standard', periodMinutes: 20, allowDraw: false,
   overtimeMinutes: 5, quarterWins: 4, semiWins: 4, finalWins: 4, noChecking: false, schoolLimit: 30, formerMasterLimit: 30};
 export interface RosterEntry { playerId: number; number: number; position: Position; captain: '' | 'C' | 'A'; played: boolean; }
-export interface Goal { id: string; teamId: number; period: number; time: string; scorerId: number; assist1Id: number | null; assist2Id: number | null; situation: 'EV' | 'PP' | 'PP2' | 'SH' | 'SH2' | 'EN' | 'PS'; homeOnIce?:number[]; awayOnIce?:number[]; }
+export interface Goal { id: string; teamId: number; period: number; time: string; scorerId: number; assist1Id: number | null; assist2Id: number | null; goalieId?: number | null; situation: 'EV' | 'PP' | 'PP2' | 'SH' | 'SH2' | 'EN' | 'PS'; homeOnIce?:number[]; awayOnIce?:number[]; }
 export interface Penalty { id: string; teamId: number; playerId: number | null; servedById?: number | null; kind?: 'minutes' | 'penalty_shot'; period: number; time: string; minutes: number; code: string; start?: string; end?: string; }
 export interface GoalieShift { teamId: number; playerId: number | null; from: string; to: string; }
 export interface ShootoutAttempt { teamId: number; playerId: number; goalieId: number; scored: boolean; }
 export interface Protocol {
   timeBasis?: 'match' | 'period';
+  goalieStatsVersion?: 1;
   detailLevel: 'full' | 'score_only'; homeRoster: RosterEntry[]; awayRoster: RosterEntry[];
   goals: Goal[]; penalties: Penalty[]; goalieShifts: GoalieShift[]; shootout: ShootoutAttempt[];
   resolution: 'regulation' | 'draw' | 'overtime' | 'shootout' | 'technical';
@@ -180,6 +182,8 @@ export function validateProtocolShape(p: Protocol): void {
   if(p.sheet!==undefined)validateSheetShape(p.sheet);
   for(const goal of p.goals)for(const list of [goal.homeOnIce,goal.awayOnIce])if(list!==undefined)ensure(Array.isArray(list)&&list.length<=6&&list.every(id=>Number.isInteger(id)&&id>0),'Некорректный состав игроков на льду');
   ensure(p.timeBasis===undefined||['match','period'].includes(p.timeBasis),'Неизвестный формат времени протокола');
+  ensure(p.goalieStatsVersion===undefined||p.goalieStatsVersion===1,'Неизвестная версия статистики вратарей');
+  for(const goal of p.goals)ensure(goal.goalieId===undefined||goal.goalieId===null||Number.isInteger(goal.goalieId)&&goal.goalieId>0,'Некорректный пропустивший вратарь');
   ensure(['full','score_only'].includes(p.detailLevel),'Неизвестный режим протокола');
   ensure(['regulation','draw','overtime','shootout','technical'].includes(p.resolution),'Неизвестный исход матча');
   for(const text of [p.notes,p.referee,p.technicalReason]) ensure(typeof text==='string' && text.length <= 5000,'Текст протокола слишком длинный');
@@ -288,6 +292,7 @@ export function resolveProtocol(p: Protocol, match: MatchInput, rules: Rules): R
   }
   if(match.stage!=='regular') ensure(home!==away,'Матч плей-офф должен определить победителя');
   if(match.stage==='regular'&&rules.profile==='festival') ensure(!['overtime','shootout'].includes(p.resolution),'Регулярка фестиваля не предусматривает ОТ и БП');
+  if(p.goalieStatsVersion===1&&p.detailLevel==='full'&&p.resolution!=='technical'){const summary=goalieSummary(p,match,rules);ensure(!summary.issues.length,summary.issues[0]?.message||'Проверьте статистику вратарей');}
   return {homeScore:home,awayScore:away,periodScores:scores,resolution:p.resolution,winnerId:home===away?null:home>away?match.homeTeamId:match.awayTeamId};
 }
 export function sortProtocolRoster<T extends Pick<RosterEntry,'number'|'position'>>(roster:readonly T[]):T[]{

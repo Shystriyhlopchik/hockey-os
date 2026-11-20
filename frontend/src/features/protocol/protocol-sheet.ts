@@ -1,3 +1,4 @@
+import { goalieSummary } from '../../../../shared/goalie-statistics.js';
 export const OFFICIAL_FIELDS = [
   ['referee2', 'Второй главный судья'],
   ['linesman1', 'Первый линейный судья'],
@@ -177,6 +178,8 @@ export function protocolWarnings(p: any, match: any, rules: any): string[] {
       if (new Set(list.map((r: any) => r.number)).size !== list.length)
         messages.push(`${title}: повторяются номера игроков.`);
     }
+  if (p.detailLevel === 'full' && p.resolution !== 'technical')
+    messages.push(...goalieSummary(p, match, rules).issues.map((issue) => issue.message));
   if (!p.referee.trim()) messages.push('Не указан главный судья.');
   if (!p.sheet?.officials?.secretary?.trim()) messages.push('Не указан секретарь матча.');
   if (p.detailLevel === 'full' && p.resolution !== 'technical' && !p.goalieShifts.length)

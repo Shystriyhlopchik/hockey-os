@@ -16,3 +16,16 @@
   font-size: 12px;
   margin: 12px 0;
 }
+
+.goalie-summary {
+  margin-bottom: 24px;
+}
+.goalie-quick-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 16px 0;
+}
+.goalie-quick-actions > span {
+  flex-basis: 100%;
+}

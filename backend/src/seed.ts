@@ -1,3 +1,4 @@
+import {newsSlug} from './news/news-content';
 import {DataSource} from 'typeorm';
 import {Community,Season,User,Assignment,Team,Player,Tournament,Registration,Match,Revision,News,Audit} from './entities';
 import {FESTIVAL_RULES,emptyProtocol,roundRobin,resolveProtocol} from './domain';
@@ -47,7 +48,7 @@ export async function seed(db:DataSource){
         }
       }
     }
-    for(const article of [{title:'Сезон, который объединяет',category:'События',body:'Городской фестиваль возвращается на лёд. В этом сезоне встречаются команды дивизионов 18+ и 40+. Следите за календарём, поддерживайте свою команду и открывайте новые имена. Это демонстрационная новость — её можно изменить в кабинете.'},{title:'Всё о формате фестиваля',category:'Регламент',body:'Команды играют регулярный этап в два круга. Каждый матч состоит из трёх периодов по 15 минут чистого времени. При равном счёте в регулярке фиксируется ничья. Затем сильнейшие встретятся в сериях плей-офф.'},{title:'Протокол — основа статистики',category:'Лига',body:'После игры секретарь публикует составы, голы, передачи и удаления. На основе этих данных автоматически обновляются таблицы и статистика хоккеистов.'}])await m.save(News,m.create(News,{...article,published:true}));
+    for(const article of [{title:'Сезон, который объединяет',category:'События',body:'Городской фестиваль возвращается на лёд. В этом сезоне встречаются команды дивизионов 18+ и 40+. Следите за календарём, поддерживайте свою команду и открывайте новые имена. Это демонстрационная новость — её можно изменить в кабинете.'},{title:'Всё о формате фестиваля',category:'Регламент',body:'Команды играют регулярный этап в два круга. Каждый матч состоит из трёх периодов по 15 минут чистого времени. При равном счёте в регулярке фиксируется ничья. Затем сильнейшие встретятся в сериях плей-офф.'},{title:'Протокол — основа статистики',category:'Лига',body:'После игры секретарь публикует составы, голы, передачи и удаления. На основе этих данных автоматически обновляются таблицы и статистика хоккеистов.'}])await m.save(News,m.create(News,{...article,published:true,publishedAt:new Date(),slug:newsSlug(article.title),slugLocked:true}));
     await m.save(Audit,m.create(Audit,{actorId:admin.id,tournamentId:null,action:'demo_seed',entity:'community',entityId:1,details:{teams:16,players:352}}));
   });
 }

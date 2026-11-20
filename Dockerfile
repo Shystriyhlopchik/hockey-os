@@ -12,6 +12,7 @@ COPY frontend/package.json ./frontend/
 RUN pnpm --filter @hockey-os/backend --filter @hockey-os/frontend install --frozen-lockfile --ignore-scripts
 COPY backend ./backend
 COPY frontend ./frontend
+COPY shared ./shared
 RUN pnpm --dir backend build && pnpm --dir frontend build
 
 FROM base AS production-dependencies
@@ -29,6 +30,8 @@ COPY --from=production-dependencies --chown=node:node /app/node_modules ./node_m
 COPY --from=production-dependencies --chown=node:node /app/backend/node_modules ./backend/node_modules
 COPY --from=build --chown=node:node /app/backend/dist ./backend/dist
 COPY --from=build --chown=node:node /app/frontend/dist/hockey/browser ./frontend/dist/hockey/browser
+COPY --from=build --chown=node:node /app/shared ./shared
+RUN mkdir -p /app/uploads/news && chown -R node:node /app/uploads
 USER node
 EXPOSE 4100
 CMD ["node", "backend/dist/main.js"]
