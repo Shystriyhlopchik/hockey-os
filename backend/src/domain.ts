@@ -1,3 +1,5 @@
+import {GOAL_STRENGTHS,GOAL_TYPES,goalContext} from '../../shared/protocol-details.js';
+import type {GoalStrength,GoalType} from '../../shared/protocol-details.js';
 import {goalieSummary} from '../../shared/goalie-statistics.js';
 export type Role = 'superuser' | 'community_admin' | 'tournament_admin' | 'secretary';
 export type Position = 'G' | 'D' | 'F';
@@ -21,13 +23,14 @@ export const FESTIVAL_RULES: Rules = {
 export const STANDARD_RULES: Rules = {...FESTIVAL_RULES, profile: 'standard', periodMinutes: 20, allowDraw: false,
   overtimeMinutes: 5, quarterWins: 4, semiWins: 4, finalWins: 4, noChecking: false, schoolLimit: 30, formerMasterLimit: 30};
 export interface RosterEntry { playerId: number; number: number; position: Position; captain: '' | 'C' | 'A'; played: boolean; }
-export interface Goal { id: string; teamId: number; period: number; time: string; scorerId: number; assist1Id: number | null; assist2Id: number | null; goalieId?: number | null; situation: 'EV' | 'PP' | 'PP2' | 'SH' | 'SH2' | 'EN' | 'PS'; homeOnIce?:number[]; awayOnIce?:number[]; }
-export interface Penalty { id: string; teamId: number; playerId: number | null; servedById?: number | null; kind?: 'minutes' | 'penalty_shot'; period: number; time: string; minutes: number; code: string; start?: string; end?: string; }
+export interface Goal { id: string; teamId: number; period: number; time: string; scorerId: number; assist1Id: number | null; assist2Id: number | null; goalieId?: number | null; strength?: GoalStrength | null; goalType?: GoalType; situation: 'EV' | 'PP' | 'PP2' | 'SH' | 'SH2' | 'EN' | 'PS'; homeOnIce?:number[]; awayOnIce?:number[]; }
+export interface Penalty { id: string; teamId: number; playerId: number | null; servedById?: number | null; kind?: 'minutes' | 'penalty_shot'; period: number; time: string; minutes: number; code: string; start?: string; end?: string; timingMode?: 'start' | 'separate'; }
 export interface GoalieShift { teamId: number; playerId: number | null; from: string; to: string; }
 export interface ShootoutAttempt { teamId: number; playerId: number; goalieId: number; scored: boolean; }
 export interface Protocol {
   timeBasis?: 'match' | 'period';
   goalieStatsVersion?: 1;
+  bestPlayerId?: number | null;
   detailLevel: 'full' | 'score_only'; homeRoster: RosterEntry[]; awayRoster: RosterEntry[];
   goals: Goal[]; penalties: Penalty[]; goalieShifts: GoalieShift[]; shootout: ShootoutAttempt[];
   resolution: 'regulation' | 'draw' | 'overtime' | 'shootout' | 'technical';
@@ -175,11 +178,20 @@ export function roundRobin(ids: number[], legs: number): {homeTeamId:number;away
   }
   return Array.from({length:legs},(_,leg)=>base.map(m=>({homeTeamId:leg%2?m.awayTeamId:m.homeTeamId,awayTeamId:leg%2?m.homeTeamId:m.awayTeamId,round:m.round+leg*(rotation.length-1)}))).flat();
 }
-export function emptyProtocol(): Protocol {return {detailLevel:'full',homeRoster:[],awayRoster:[],goals:[],penalties:[],goalieShifts:[],shootout:[],resolution:'regulation',manualHomeScore:null,manualAwayScore:null,technicalReason:'',notes:'',referee:'',spectators:null};}
+export function emptyProtocol(): Protocol {return {bestPlayerId:null,detailLevel:'full',homeRoster:[],awayRoster:[],goals:[],penalties:[],goalieShifts:[],shootout:[],resolution:'regulation',manualHomeScore:null,manualAwayScore:null,technicalReason:'',notes:'',referee:'',spectators:null};}
 export function validateProtocolShape(p: Protocol): void {
   ensure(p && typeof p === 'object','Протокол не заполнен');
   for(const key of ['homeRoster','awayRoster','goals','penalties','goalieShifts','shootout']) ensure(Array.isArray((p as any)[key]) && (p as any)[key].length <= 500 && (p as any)[key].every((x:unknown)=>x&&typeof x==='object'&&!Array.isArray(x)), `Некорректный раздел ${key}`);
   if(p.sheet!==undefined)validateSheetShape(p.sheet);
+  ensure(p.bestPlayerId===undefined||p.bestPlayerId===null||Number.isSafeInteger(p.bestPlayerId)&&p.bestPlayerId>0,'Некорректный лучший игрок матча');
+  for(const g of p.goals){
+    ensure(g.strength===undefined||g.strength===null||GOAL_STRENGTHS.some(([code])=>code===g.strength),'Неизвестный численный состав при голе');
+    ensure(g.goalType===undefined||GOAL_TYPES.some(([code])=>code===g.goalType),'Неизвестный тип гола');
+  }
+  for(const e of p.penalties){
+    ensure(e.timingMode===undefined||['start','separate'].includes(e.timingMode),'Неизвестный режим времени удаления');
+    for(const value of [e.start,e.end])ensure(value===undefined||typeof value==='string'&&value.length<=20,'Некорректное время удаления');
+  }
   for(const goal of p.goals)for(const list of [goal.homeOnIce,goal.awayOnIce])if(list!==undefined)ensure(Array.isArray(list)&&list.length<=6&&list.every(id=>Number.isInteger(id)&&id>0),'Некорректный состав игроков на льду');
   ensure(p.timeBasis===undefined||['match','period'].includes(p.timeBasis),'Неизвестный формат времени протокола');
   ensure(p.goalieStatsVersion===undefined||p.goalieStatsVersion===1,'Неизвестная версия статистики вратарей');
@@ -213,6 +225,10 @@ export function resolveProtocol(p: Protocol, match: MatchInput, rules: Rules): R
   const member=(team:number,id:number|null)=>id!==null&&allowed.get(team)?.has(id);
   const played=(team:number,id:number)=> (team===match.homeTeamId?p.homeRoster:p.awayRoster).some(x=>x.playerId===id&&x.played);
   validateSheet(p,match,rules,allowed);
+  if(p.bestPlayerId!=null){
+    ensure(p.detailLevel==='full'&&p.resolution!=='technical','Лучший игрок выбирается только для полного игрового протокола');
+    ensure([...p.homeRoster,...p.awayRoster].some(r=>r.playerId===p.bestPlayerId&&r.played),'Лучший игрок должен участвовать в матче');
+  }
   const eventIds = [...p.goals,...p.penalties].map(x=>x.id);
   ensure(eventIds.every(id=>typeof id==='string'&&id.length>0&&id.length<=80) && new Set(eventIds).size===eventIds.length,'Идентификаторы событий повторяются');
   if(p.resolution==='technical') {
@@ -220,6 +236,15 @@ export function resolveProtocol(p: Protocol, match: MatchInput, rules: Rules): R
     ensure(p.goals.length===0&&p.penalties.length===0&&p.shootout.length===0,'Технический результат вводится отдельно от событий матча');
   }
   for(const g of p.goals) {
+    if(g.strength!==undefined||g.goalType!==undefined){
+      ensure(g.strength!==undefined&&g.goalType!==undefined,'Укажите численный состав и тип гола');
+      const context=goalContext(g);
+      ensure(context.goalType!=='regular'||context.strength!==null,'Укажите численный состав при голе');
+      ensure(context.goalType!=='penalty_shot'||context.strength===null,'Для штрафного броска численный состав не указывается');
+      const situation=context.goalType==='empty_net'?'EN':context.goalType==='penalty_shot'?'PS':context.strength;
+      ensure(g.situation===situation,'Тип гола не соответствует игровой ситуации');
+      ensure(context.goalType==='empty_net'?g.goalieId==null:g.goalieId!==null,'Проверьте вратаря и тип гола');
+    }
     ensure(member(g.teamId,g.scorerId),'Автор гола отсутствует в составе команды');
     ensure(played(g.teamId,g.scorerId),'Автор гола не отмечен как участвовавший');
     const participants=[g.scorerId,g.assist1Id,g.assist2Id].filter((x): x is number=>x!==null);
@@ -247,6 +272,13 @@ export function resolveProtocol(p: Protocol, match: MatchInput, rules: Rules): R
   }
   const lastPeriod=Math.max(rules.periods,...p.goals.map(g=>g.period));
   const actualLength=rules.periods*rules.periodMinutes*60+(p.resolution==='shootout'?rules.overtimeMinutes*60:lastPeriod>rules.periods?(lastPeriod-rules.periods-1)*rules.overtimeMinutes*60+Math.max(0,...p.goals.filter(g=>g.period===lastPeriod).map(g=>seconds(g.time))):0);
+  for(const e of protocolInMatchTime(p,rules).penalties){
+    if(e.timingMode===undefined)continue;
+    ensure(!!e.start,'Укажите начало удаления');
+    const start=seconds(e.start!,actualLength),assigned=seconds(e.time,actualLength);
+    ensure(e.timingMode==='start'?assigned===start:assigned<=start,'Момент назначения должен совпадать с началом или предшествовать ему');
+    if(e.end)ensure(seconds(e.end,actualLength)>=start,'Окончание штрафа раньше начала');
+  }
   const intervals=new Map<number,{from:number;to:number}[]>();
   for(const s of p.goalieShifts) {
     ensure(allowed.has(s.teamId),'Неизвестная команда в интервалах вратарей');

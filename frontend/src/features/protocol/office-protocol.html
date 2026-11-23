@@ -99,6 +99,31 @@
         ></textarea>
       </label>
     }
+    <section class="panel match-mvp">
+      <label
+        >Лучший игрок матча<select
+          [ngModel]="vm.protocol().bestPlayerId ?? null"
+          (ngModelChange)="vm.patchProtocol(['bestPlayerId'], $event)"
+        >
+          <option [ngValue]="null">Не выбран</option>
+          @if (vm.protocol().bestPlayerId && !bestPlayerAvailable()) {
+            <option [ngValue]="vm.protocol().bestPlayerId" disabled>
+              {{ vm.playerName(vm.protocol().bestPlayerId) }} · Недоступен: проверьте участие и
+              режим протокола
+            </option>
+          }
+          @for (r of bestPlayerOptions(); track r.playerId) {
+            <option [ngValue]="r.playerId">
+              {{ vm.teamName(r.teamId) }} · №{{ r.number }} · {{ r.name }}
+            </option>
+          }
+        </select></label
+      >
+      <p class="muted">
+        Один лучший игрок на матч. Выбирается из участвовавших хоккеистов обеих команд, включая
+        вратарей. Поле необязательное.
+      </p>
+    </section>
     <div class="sheet-score-summary">
       @for (s of vm.protocolSummary().rows; track s.label) {
         <span
@@ -450,6 +475,7 @@
             ><label
               >Ассистент 1<select
                 [ngModel]="g.assist1Id"
+                [disabled]="goalContext(g).goalType === 'penalty_shot'"
                 (ngModelChange)="vm.patchProtocolItem(g, { assist1Id: $event })"
               >
                 <option [ngValue]="null">Нет</option>
@@ -460,6 +486,7 @@
             ><label
               >Ассистент 2<select
                 [ngModel]="g.assist2Id"
+                [disabled]="goalContext(g).goalType === 'penalty_shot'"
                 (ngModelChange)="vm.patchProtocolItem(g, { assist2Id: $event })"
               >
                 <option [ngValue]="null">Нет</option>
@@ -468,19 +495,23 @@
                 }
               </select></label
             ><label
-              >Ситуация<select
-                [ngModel]="g.situation"
-                (ngModelChange)="
-                  vm.patchProtocolItem(g, {
-                    goalieId: undefined,
-                    situation: $event,
-                    assist1Id: $event === 'PS' ? null : g.assist1Id,
-                    assist2Id: $event === 'PS' ? null : g.assist2Id,
-                  })
-                "
+              >Составы при голе<select
+                [ngModel]="goalContext(g).strength"
+                (ngModelChange)="setGoalStrength(g, $event)"
+                [disabled]="goalContext(g).goalType === 'penalty_shot'"
               >
-                @for (s of vm.goalSituations; track s[0]) {
-                  <option [value]="s[0]">{{ s[1] }}</option>
+                <option [ngValue]="null">Не указаны</option>
+                @for (s of goalStrengths; track s[0]) {
+                  <option [ngValue]="s[0]">{{ s[1] }}</option>
+                }
+              </select></label
+            ><label
+              >Тип гола<select
+                [ngModel]="goalContext(g).goalType"
+                (ngModelChange)="setGoalType(g, $event)"
+              >
+                @for (t of goalTypes; track t[0]) {
+                  <option [ngValue]="t[0]">{{ t[1] }}</option>
                 }
               </select></label
             ><label
@@ -567,7 +598,6 @@
       <div class="event-list" #penaltyList>
         @for (entry of penalties(); track entry.event.id) {
           @let p = entry.event;
-          @let i = entry.index;
           <section class="event-row penalty-row" [attr.data-penalty-id]="p.id">
             <label
               >Команда<select
@@ -597,16 +627,6 @@
                 (ngModelChange)="vm.patchProtocolItem(p, { period: $event })"
                 min="1"
                 [max]="vm.detail().tournament.rules.periods + 20" /></label
-            ><label
-              >Время матча<input
-                [ngModel]="p.time"
-                (ngModelChange)="vm.patchProtocolItem(p, { time: $event })"
-                placeholder="ММ:СС"
-                [attr.aria-label]="'Время удаления №' + (i + 1)"
-                [attr.aria-describedby]="'penalty-time-range-' + p.id"
-              /><small class="event-time-range" [id]="'penalty-time-range-' + p.id">{{
-                vm.matchTimeRange(p.period)
-              }}</small></label
             ><label
               >Минуты<select
                 [ngModel]="p.minutes"
@@ -638,12 +658,12 @@
                 }
               </select></label
             ><label
-              >Начало<input
-                [ngModel]="p.start"
-                (ngModelChange)="vm.patchProtocolItem(p, { start: $event })"
+              >Начало удаления<input
+                [ngModel]="penaltyStart(p)"
+                (ngModelChange)="setPenaltyStart(p, $event)"
                 placeholder="ММ:СС" /></label
             ><label
-              >Окончание<input
+              >Конец удаления<input
                 [ngModel]="p.end"
                 (ngModelChange)="vm.patchProtocolItem(p, { end: $event })"
                 placeholder="ММ:СС" /></label
@@ -654,6 +674,35 @@
             >
               ×
             </button>
+            <details class="penalty-assignment" [open]="penaltyTimingMode(p) === 'separate'">
+              <summary>Дополнительное время назначения</summary>
+              <label
+                ><input
+                  type="checkbox"
+                  [ngModel]="penaltyTimingMode(p) === 'separate'"
+                  (ngModelChange)="setPenaltySeparate(p, $event)"
+                />
+                Момент назначения отличается от начала удаления</label
+              >
+              @if (penaltyTimingMode(p) === 'separate') {
+                <label
+                  >Назначено<input
+                    [ngModel]="p.time"
+                    (ngModelChange)="vm.patchProtocolItem(p, { time: $event })"
+                    placeholder="ММ:СС"
+                  /><small>{{ vm.matchTimeRange(p.period) }}</small></label
+                >
+              }
+              @if (!p.start) {
+                <p class="muted">
+                  Начало показано по прежнему времени назначения. Уточните при необходимости.
+                </p>
+              }
+              <p class="muted">
+                Время — от начала матча. Конец можно оставить пустым, если он не применим. При
+                отдельном назначении период относится к моменту назначения.
+              </p>
+            </details>
           </section>
         } @empty {
           <div class="empty panel">Удаления ещё не внесены.</div>

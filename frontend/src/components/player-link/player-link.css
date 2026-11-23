@@ -1,0 +1,19 @@
+:host {
+  display: inline;
+}
+a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+  text-underline-offset: 3px;
+  transition: color 0.15s;
+}
+a:hover {
+  color: var(--accent);
+}
+@media print {
+  a {
+    text-decoration: none;
+    color: inherit;
+  }
+}

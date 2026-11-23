@@ -1,3 +1,4 @@
+import {goalSituationLabel,penaltyStart,OFFICIAL_ROLES} from '../../shared/protocol-details.js';
 import {goalieSummary,formatGoalieTime} from '../../shared/goalie-statistics.js';
 import {Controller,Get,Post,Patch,Delete,Body,Param,Req,Res,ParseIntPipe,UnauthorizedException,HttpCode} from '@nestjs/common';
 import {JwtService} from '@nestjs/jwt';
@@ -65,12 +66,13 @@ import {sortProtocolRoster,chronologicalProtocolGoals} from './domain';
     sheet.addRow([team(match.homeTeamId),`${match.homeScore} : ${match.awayScore}`,team(match.awayTeamId),`Версия ${match.protocolVersion}`]);
     sheet.addRow(['Период','Хозяева','Гости']);for(const s of match.periodScores||[])sheet.addRow([s.label,s.home,s.away]);
     const p=data.protocol as any;const identity=(id:number|null)=>id?data.identities[id]?.name||'—':'—';
+    if(p.bestPlayerId)sheet.addRow(['Лучший игрок матча',identity(p.bestPlayerId)]);
     for(const [tid,roster] of [[match.homeTeamId,p.homeRoster],[match.awayTeamId,p.awayRoster]]){
       sheet.addRow([]);sheet.addRow([team(tid)]);sheet.addRow(['Номер','Игрок','Амплуа','К / А','Участвовал']);for(const r of sortProtocolRoster<any>(roster))sheet.addRow([r.number,identity(r.playerId),r.position,r.captain,r.played?'Да':'Нет']);
     }
     sheet.addRow([]);sheet.addRow(['ГОЛЫ']);sheet.getColumn(8).width=32;sheet.getColumn(9).width=32;
-    sheet.addRow(['Период','Время матча','Команда','Автор','Ассистент 1','Ассистент 2','Ситуация','На льду · А','На льду · Б']);for(const g of chronologicalProtocolGoals<any>(p.goals))sheet.addRow([g.period,g.time,team(g.teamId),identity(g.scorerId),identity(g.assist1Id),identity(g.assist2Id),g.situation,(g.homeOnIce||[]).map(identity).join(', '),(g.awayOnIce||[]).map(identity).join(', ')]);
-    sheet.addRow([]);sheet.addRow(['УДАЛЕНИЯ']);sheet.addRow(['Период','Время матча','Команда','Игрок','Минуты','Нарушение','Отбывал','Начало','Окончание']);for(const e of p.penalties)sheet.addRow([e.period,e.time,team(e.teamId),identity(e.playerId),e.kind==='penalty_shot'?'ШБ':e.minutes,e.code,identity(e.servedById),e.start||'',e.end||'']);
+    sheet.addRow(['Период','Время матча','Команда','Автор','Ассистент 1','Ассистент 2','Ситуация','На льду · А','На льду · Б']);for(const g of chronologicalProtocolGoals<any>(p.goals))sheet.addRow([g.period,g.time,team(g.teamId),identity(g.scorerId),identity(g.assist1Id),identity(g.assist2Id),goalSituationLabel(g),(g.homeOnIce||[]).map(identity).join(', '),(g.awayOnIce||[]).map(identity).join(', ')]);
+    sheet.addRow([]);sheet.addRow(['УДАЛЕНИЯ']);sheet.addRow(['Период','Назначено (при отличии)','Команда','Игрок','Минуты','Нарушение','Отбывал','Начало','Окончание']);for(const e of p.penalties)sheet.addRow([e.period,e.time!==penaltyStart(e)?e.time:'',team(e.teamId),identity(e.playerId),e.kind==='penalty_shot'?'ШБ':e.minutes,e.code,identity(e.servedById),penaltyStart(e),e.end||'']);
     const back=wb.addWorksheet('Дополнения',{pageSetup:{paperSize:9,fitToPage:true,fitToWidth:1,fitToHeight:0}});back.columns=[{width:26},{width:38},{width:30},{width:30},{width:25}];
     back.addRow(['ВРАТАРИ']);back.addRow(['Команда','Вратарь','Начало','Окончание']);for(const g of p.goalieShifts)back.addRow([team(g.teamId),g.playerId?identity(g.playerId):'Пустые ворота',g.from,g.to]);
     const keeperStats=goalieSummary(p,{homeTeamId:match.homeTeamId!,awayTeamId:match.awayTeamId!},data.tournament.rules);
@@ -88,7 +90,7 @@ import {sortProtocolRoster,chronologicalProtocolGoals} from './domain';
       back.addRow([]);back.addRow(['ТАЙМ-АУТЫ']);back.addRow(['Команда','Период','Время матча']);for(const t of s.timeouts||[])back.addRow([team(t.teamId),t.period,t.time]);
       back.addRow([]);back.addRow(['НЕРЕАЛИЗОВАННЫЕ ШТРАФНЫЕ БРОСКИ']);back.addRow(['Команда','Период','Время матча','Исполнитель','Вратарь']);for(const shot of s.missedShots||[])back.addRow([team(shot.teamId),shot.period,shot.time,identity(shot.playerId),identity(shot.goalieId)]);
       back.addRow([]);back.addRow(['СУДЕЙСКАЯ БРИГАДА']);
-      for(const [field,label] of [['referee2','Второй главный судья'],['linesman1','Первый линейный судья'],['linesman2','Второй линейный судья'],['timekeeper','Судья времени матча'],['announcer','Информатор'],['penaltyHome','При оштрафованных игроках · А'],['penaltyAway','При оштрафованных игроках · Б'],['scorekeeperHome','Судья-регистратор · А'],['scorekeeperAway','Судья-регистратор · Б'],['goalJudge1','Судья за воротами · 1'],['goalJudge2','Судья за воротами · 2'],['reserveReferee','Резервный главный судья'],['reserveLinesman','Резервный линейный судья'],['videoJudge','Судья видеоповторов'],['inspector','Инспектор'],['secretary','Секретарь'],['chiefReferee','Главный судья соревнований']])back.addRow([label,s.officials?.[field]||'']);
+      for(const [field,label] of OFFICIAL_ROLES)if(s.officials?.[field]?.trim())back.addRow([label,s.officials[field]]);
       back.addRow([]);back.addRow(['ЗАМЕЧАНИЯ НА ОБОРОТЕ']);
       for(const [field,label] of [['disciplinaryNotes','Дисциплинарные нарушения и пункты регламента'],['matchNotes','Замечания главного судьи и инспектора'],['protestNotes','Уведомления о подаче протеста']])back.addRow([label,s[field]||'']);
       if(actor)back.addRow(['Уведомления врачей о травмах · служебные',s.injuryNotes||'']);

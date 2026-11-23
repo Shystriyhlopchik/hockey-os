@@ -79,6 +79,11 @@ try{
     await draft(target.id,emptyProtocol());await remove(p.id,(await info(p.id)).version);
   }
   ok('Черновики защищают все 15 ссылок на игрока: составы, голы и ассисты, игроки на льду, штрафы, вратари и штрафные броски');
+  const mvp=await create(),mvpProtocol=emptyProtocol();mvpProtocol.bestPlayerId=mvp.id;
+  await draft(target.id,mvpProtocol);
+  const mvpInfo=await info(mvp.id);assert.equal(mvpInfo.canDelete,false);await remove(mvp.id,mvpInfo.version,409);
+  await draft(target.id,emptyProtocol());await remove(mvp.id,(await info(mvp.id)).version);
+  ok('Ссылка на MVP в черновике защищает карточку от удаления независимо от состава');
   const unrelated=await create();const numeric=emptyProtocol();numeric.goals=[{teamId:unrelated.id,period:unrelated.id,id:String(unrelated.id)}];await draft(target.id,numeric);
   assert.equal((await info(unrelated.id)).canDelete,true);await remove(unrelated.id,(await info(unrelated.id)).version);await draft(target.id,emptyProtocol());
   ok('Совпадение ID с номером периода, команды или события не блокирует удаление постороннего игрока');

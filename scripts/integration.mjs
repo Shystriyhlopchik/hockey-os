@@ -173,7 +173,7 @@ try{
   await publish(draftMatch.id,timingDetail.draft,'secretary','Общее время матча');
   const timedPublic=await api(`matches/${draftMatch.id}`);assert.equal(timedPublic.match.homeScore,2);assert.deepEqual(timedPublic.protocol.goals.map(goal=>goal.time),['21:00','42:00']);assert.equal(timedPublic.protocol.penalties[0].time,'21:30');
   const timedWorkbook=new Workbook();await timedWorkbook.xlsx.load(Buffer.from(await (await fetch(base+`matches/${draftMatch.id}/export.xlsx`)).arrayBuffer()));
-  assert.ok(timedWorkbook.worksheets[0].getColumn(2).values.includes('21:00'));assert.ok(timedWorkbook.worksheets[0].getColumn(2).values.includes('42:00'));assert.ok(timedWorkbook.worksheets[0].getColumn(2).values.includes('21:30'));
+  assert.ok(timedWorkbook.worksheets[0].getColumn(2).values.includes('21:00'));assert.ok(timedWorkbook.worksheets[0].getColumn(2).values.includes('42:00'));assert.ok(timedWorkbook.worksheets[0].getColumn(8).values.includes('21:30'));assert.ok(!timedWorkbook.worksheets[0].getColumn(2).values.includes('21:30'));
   const invalidTime=structuredClone(timed);invalidTime.goals[0].time='14:59';
   timingDetail=await api(`workspace/matches/${draftMatch.id}`,'GET',undefined,'secretary');
   const timingError=await api(`workspace/matches/${draftMatch.id}/publish`,'POST',{protocol:invalidTime,expectedDraftVersion:timingDetail.draftVersion,expectedProtocolVersion:timingDetail.match.protocolVersion,reason:'Проверка неправильного времени'},'secretary',400);

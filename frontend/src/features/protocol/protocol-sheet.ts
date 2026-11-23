@@ -1,23 +1,6 @@
+import { OFFICIAL_ROLES } from '../../../../shared/protocol-details.js';
 import { goalieSummary } from '../../../../shared/goalie-statistics.js';
-export const OFFICIAL_FIELDS = [
-  ['referee2', 'Второй главный судья'],
-  ['linesman1', 'Первый линейный судья'],
-  ['linesman2', 'Второй линейный судья'],
-  ['timekeeper', 'Судья времени матча'],
-  ['announcer', 'Информатор'],
-  ['penaltyHome', 'При оштрафованных игроках · А'],
-  ['penaltyAway', 'При оштрафованных игроках · Б'],
-  ['scorekeeperHome', 'Судья-регистратор · А'],
-  ['scorekeeperAway', 'Судья-регистратор · Б'],
-  ['goalJudge1', 'Судья за воротами · 1'],
-  ['goalJudge2', 'Судья за воротами · 2'],
-  ['reserveReferee', 'Резервный главный судья'],
-  ['reserveLinesman', 'Резервный линейный судья'],
-  ['videoJudge', 'Судья видеоповторов'],
-  ['inspector', 'Инспектор'],
-  ['secretary', 'Секретарь'],
-  ['chiefReferee', 'Главный судья соревнований'],
-];
+export const OFFICIAL_FIELDS = OFFICIAL_ROLES;
 export const STAFF_FIELDS = [
   ['headCoach', 'Главный тренер'],
   ['coach', 'Тренер'],

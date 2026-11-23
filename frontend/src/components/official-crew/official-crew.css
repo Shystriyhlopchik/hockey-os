@@ -1,0 +1,49 @@
+:host {
+  display: block;
+}
+.official-crew {
+  margin: 24px 0;
+}
+h3 {
+  margin: 0 0 18px;
+}
+dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px 30px;
+  margin: 0;
+}
+dl > div {
+  min-width: 0;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 10px;
+}
+dt {
+  font-size: 12px;
+  color: var(--muted);
+}
+dd {
+  margin: 5px 0 0;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 650px) {
+  dl {
+    grid-template-columns: 1fr;
+  }
+}
+@media print {
+  .official-crew {
+    margin: 15px 0;
+  }
+  dt {
+    color: inherit;
+    font-size: inherit;
+  }
+  dl > div {
+    border-color: #ccc;
+    break-inside: avoid;
+  }
+  h3 {
+    font-size: 12px;
+  }
+}

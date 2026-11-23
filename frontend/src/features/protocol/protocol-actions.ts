@@ -67,6 +67,8 @@ export function createProtocolActions(context: ProtocolActionContext) {
       assist1Id: null,
       assist2Id: null,
       situation: 'EV',
+      strength: 'EV',
+      goalType: 'regular',
     });
   }
 
@@ -80,7 +82,8 @@ export function createProtocolActions(context: ProtocolActionContext) {
       time: '00:00',
       minutes: 2,
       code: 'Подножка',
-      start: '',
+      timingMode: 'start',
+      start: '00:00',
       end: '',
     });
   }

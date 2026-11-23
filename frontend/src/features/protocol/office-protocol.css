@@ -29,3 +29,19 @@
 .goalie-quick-actions > span {
   flex-basis: 100%;
 }
+
+.match-mvp {
+  margin: 20px 0;
+}
+.match-mvp label {
+  max-width: 780px;
+}
+.penalty-assignment {
+  grid-column: 1 / -1;
+}
+.penalty-assignment > label {
+  margin: 12px 0;
+}
+.penalty-assignment input[type='checkbox'] {
+  width: auto;
+}

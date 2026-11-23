@@ -34,6 +34,12 @@
       </div>
     </div>
     @if (vm.detail().protocol; as p) {
+      @if (p.bestPlayerId) {
+        <section class="panel" aria-label="Лучший игрок матча">
+          <h3>Лучший игрок матча</h3>
+          <app-player-link [playerId]="p.bestPlayerId" [name]="vm.playerName(p.bestPlayerId)" />
+        </section>
+      }
       <div class="period-scores">
         @for (s of vm.detail().match.periodScores; track s.label) {
           <span
@@ -56,13 +62,14 @@
               <div>
                 <a [routerLink]="'/players/' + g.scorerId"
                   ><strong>{{ vm.playerName(g.scorerId) }}</strong></a
-                ><small>{{ vm.teamName(g.teamId) }} · {{ g.situation }}</small
+                ><small>{{ vm.teamName(g.teamId) }} · {{ goalSituationLabel(g) }}</small
                 ><small>
                   @if (g.assist1Id) {
-                    {{ vm.playerName(g.assist1Id) }}
+                    <app-player-link [playerId]="g.assist1Id" [name]="vm.playerName(g.assist1Id)" />
                   }
                   @if (g.assist2Id) {
-                    , {{ vm.playerName(g.assist2Id) }}
+                    ,
+                    <app-player-link [playerId]="g.assist2Id" [name]="vm.playerName(g.assist2Id)" />
                   }
                 </small>
               </div>
@@ -82,18 +89,26 @@
           @for (e of p.penalties; track e.id) {
             <div class="timeline-goal">
               <span>{{ e.period }}<small>ПЕРИОД</small></span
-              ><b>{{ e.time }}</b>
+              ><b>{{ penaltyStart(e) }}</b>
               <div>
-                <strong>{{
-                  e.playerId
-                    ? vm.playerName(e.playerId)
-                    : 'Командный
-            штраф'
-                }}</strong
+                <strong
+                  ><app-player-link
+                    [playerId]="e.playerId"
+                    [name]="e.playerId ? vm.playerName(e.playerId) : 'Командный штраф'" /></strong
                 ><small
                   >{{ vm.teamName(e.teamId) }} ·
                   {{ e.kind === 'penalty_shot' ? 'ШБ' : e.minutes + ' мин' }} · {{ e.code }}</small
                 >
+                <small>Начало: {{ penaltyStart(e) }} · Конец: {{ e.end || 'Не указан' }}</small>
+                @if (e.time !== penaltyStart(e)) {
+                  <small>Назначено: {{ e.time }}</small>
+                }
+                @if (e.servedById) {
+                  <small
+                    >Отбывал:
+                    <app-player-link [playerId]="e.servedById" [name]="vm.playerName(e.servedById)"
+                  /></small>
+                }
               </div>
             </div>
           } @empty {
@@ -110,7 +125,10 @@
                 <div>
                   <span class="jersey">{{ r.number }}</span
                   ><span
-                    ><b>{{ vm.playerName(r.playerId) }}</b
+                    ><b
+                      ><app-player-link
+                        [playerId]="r.playerId"
+                        [name]="vm.playerName(r.playerId)" /></b
                     ><small
                       >{{ vm.positions[r.position] }} {{ r.captain ? '· ' + r.captain : '' }}</small
                     ></span
@@ -121,10 +139,11 @@
           </section>
         }
       </div>
+      <app-official-crew [protocol]="p" />
       <section class="panel">
         <h3>Официальные сведения</h3>
         <p>
-          Главный судья: {{ p.referee || 'Не указан' }} · Зрители:
+          Зрители:
           {{ p.spectators ?? 'Нет данных' }}
         </p>
         @if (p.notes) {

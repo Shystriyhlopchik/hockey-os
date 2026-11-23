@@ -184,3 +184,54 @@ test('КН суммирует шайбы и секунды всех матчей
   stats=app.statistics(revisions as any,games as any,players as any,[{id:1,rules}]);keeper=stats.find(row=>row.playerId===1);
   assert.equal(keeper.goalsAgainst,null);assert.equal(keeper.goalsAgainstAverage,null);assert.equal(keeper.knownGoalsAgainst,5);assert.equal(keeper.goalieUntrackedGames,1);assert.equal(keeper.goalieTrackedGames,2);
 });
+
+import {protocolPlayerIds,playerProtocolNeedles} from './player-references';
+
+test('MVP может быть участвовавшим вратарём любой команды, выбор необязателен',()=>{
+  const p=protocol();goal(p);p.bestPlayerId=11;
+  assert.equal(resolveProtocol(p,match,rules).homeScore,1);
+  p.bestPlayerId=null;assert.equal(resolveProtocol(p,match,rules).homeScore,1);
+});
+test('MVP из другой заявки, запасной и технический результат отвергаются',()=>{
+  const p=protocol();goal(p);p.bestPlayerId=999;
+  assert.throws(()=>resolveProtocol(p,match,rules),/должен участвовать/);
+  p.bestPlayerId=11;p.awayRoster[0].played=false;
+  assert.throws(()=>resolveProtocol(p,match,rules),/должен участвовать/);
+  p.awayRoster[0].played=true;p.detailLevel='score_only';
+  assert.throws(()=>resolveProtocol(p,match,rules),/полного игрового/);
+  p.detailLevel='full';p.resolution='technical';
+  assert.throws(()=>resolveProtocol(p,match,rules),/полного игрового/);
+  (p as any).bestPlayerId='11';assert.throws(()=>validateProtocolShape(p),/лучший игрок/);
+});
+test('Большинство и пустые ворота сохраняются независимо без пропущенной шайбы вратарю',()=>{
+  const p=protocol();goal(p);Object.assign(p.goals[0],{strength:'PP',goalType:'empty_net',situation:'EN',goalieId:null});
+  const copy=structuredClone(p);assert.equal(resolveProtocol(p,match,rules).homeScore,1);assert.deepEqual(p,copy);
+  p.goals[0].goalieId=11;assert.throws(()=>resolveProtocol(p,match,rules),/вратаря и тип/);
+});
+test('Несогласованные типы голов не проходят публикацию, старый EN не требует выдумывать составы',()=>{
+  const p=protocol();goal(p);p.goals[0].situation='EN';assert.equal(resolveProtocol(p,match,rules).homeScore,1);
+  Object.assign(p.goals[0],{strength:'PP',goalType:'regular'});assert.throws(()=>resolveProtocol(p,match,rules),/не соответствует/);
+  p.goals[0].situation='PP';assert.equal(resolveProtocol(p,match,rules).homeScore,1);
+  p.goals[0].strength=null;assert.throws(()=>resolveProtocol(p,match,rules),/численный состав/);
+  Object.assign(p.goals[0],{goalType:'penalty_shot',situation:'PS',strength:'PP'});assert.throws(()=>resolveProtocol(p,match,rules),/штрафного броска/);
+  p.goals[0].strength=null;assert.throws(()=>resolveProtocol(p,match,rules),/голевых передач/);
+  p.goals[0].assist1Id=null;p.goals[0].assist2Id=null;assert.equal(resolveProtocol(p,match,rules).homeScore,1);
+});
+test('Удаление во втором периоде использует накопленное начало и не преобразует его дважды',()=>{
+  const p=protocol();p.timeBasis='match';goal(p);p.penalties=[{id:'p1',teamId:1,playerId:2,period:2,time:'21:00',start:'21:00',end:'23:00',timingMode:'start',minutes:2,code:'ПОДН'}];
+  const copy=structuredClone(p);assert.equal(resolveProtocol(p,match,rules).homeScore,1);assert.deepEqual(p,copy);
+  p.penalties[0].time='20:00';assert.throws(()=>resolveProtocol(p,match,rules),/Момент назначения/);
+  p.penalties[0].timingMode='separate';assert.equal(resolveProtocol(p,match,rules).homeScore,1);
+});
+test('Отдельное назначение может предшествовать началу удаления в следующем периоде',()=>{
+  const p=protocol();p.timeBasis='match';goal(p);p.penalties=[{id:'p1',teamId:1,playerId:2,period:1,time:'14:30',start:'15:10',end:'17:10',timingMode:'separate',minutes:2,code:'ПОДН'}];
+  assert.equal(resolveProtocol(p,match,rules).homeScore,1);
+  p.penalties[0].start='14:00';assert.throws(()=>resolveProtocol(p,match,rules),/Момент назначения/);
+  p.penalties[0].start='15:10';p.penalties[0].end='46:00';assert.throws(()=>resolveProtocol(p,match,rules),/пределы/);
+  p.penalties[0].end='';assert.equal(resolveProtocol(p,match,rules).homeScore,1);
+});
+test('MVP участвует в проверке ссылок при удалении игрока, числа других полей не считаются ссылками',()=>{
+  const p=emptyProtocol();p.bestPlayerId=777;p.spectators=888;
+  assert.deepEqual(protocolPlayerIds(p),[777]);
+  assert.ok(playerProtocolNeedles(777).includes('{"bestPlayerId":777}'));
+});

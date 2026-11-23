@@ -1,3 +1,14 @@
+import {
+  GOAL_STRENGTHS,
+  GOAL_TYPES,
+  goalContext,
+  goalContextPatch,
+  penaltyStart,
+  penaltyStartPatch,
+  penaltyTimingMode,
+  penaltyModePatch,
+} from '../../../../shared/protocol-details.js';
+import type { GoalStrength, GoalType } from '../../../../shared/protocol-details.js';
 import { goalieSummary, formatGoalieTime } from '../../../../shared/goalie-statistics.js';
 import { GoalieTable } from '../../components/goalie-table/goalie-table';
 import {
@@ -26,6 +37,36 @@ import { newestEventEntries } from './protocol-order';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class OfficeProtocol {
+  protected readonly goalStrengths = GOAL_STRENGTHS;
+  protected readonly goalTypes = GOAL_TYPES;
+  protected readonly goalContext = goalContext;
+  protected readonly penaltyStart = penaltyStart;
+  protected readonly penaltyTimingMode = penaltyTimingMode;
+  protected readonly bestPlayerOptions = computed(() => {
+    const p = this.vm.protocol();
+    if (!p || p.resolution === 'technical' || p.detailLevel !== 'full') return [];
+    return this.vm.protocolTeams().flatMap((teamId: number) =>
+      this.vm
+        .rosterOptions(teamId)
+        .filter((r: any) => r.played)
+        .map((r: any) => ({ ...r, teamId })),
+    );
+  });
+  protected readonly bestPlayerAvailable = computed(() =>
+    this.bestPlayerOptions().some((r: any) => r.playerId === this.vm.protocol()?.bestPlayerId),
+  );
+  protected setGoalStrength(goal: any, strength: GoalStrength | null): void {
+    this.vm.patchProtocolItem(goal, { ...goalContextPatch(goal, { strength }) });
+  }
+  protected setGoalType(goal: any, goalType: GoalType): void {
+    this.vm.patchProtocolItem(goal, { ...goalContextPatch(goal, { goalType }) });
+  }
+  protected setPenaltyStart(penalty: any, start: string): void {
+    this.vm.patchProtocolItem(penalty, penaltyStartPatch(penalty, start));
+  }
+  protected setPenaltySeparate(penalty: any, separate: boolean): void {
+    this.vm.patchProtocolItem(penalty, penaltyModePatch(penalty, separate));
+  }
   protected readonly vm = inject(LEAGUE_STATE);
   private readonly injector = inject(Injector);
   private readonly goalList = viewChild<ElementRef<HTMLElement>>('goalList');
@@ -93,14 +134,15 @@ export class OfficeProtocol {
     );
   }
   protected setGoalKeeper(goal: any, goalieId: number | null | undefined): void {
+    const goalType =
+      goalieId === null
+        ? 'empty_net'
+        : typeof goalieId === 'number' && goalContext(goal).goalType === 'empty_net'
+          ? 'regular'
+          : goalContext(goal).goalType;
     this.vm.patchProtocolItem(goal, {
-      goalieId,
-      situation:
-        goalieId === null
-          ? 'EN'
-          : typeof goalieId === 'number' && goal.situation === 'EN'
-            ? 'EV'
-            : goal.situation,
+      ...goalContextPatch(goal, { goalType }),
+      goalieId: goalType === 'empty_net' ? null : goalieId,
     });
   }
   protected keeperAssignment(goalId: string): string {

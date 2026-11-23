@@ -1,16 +1,14 @@
+import { goalSituationLabel, penaltyStart } from '../../../../shared/protocol-details.js';
+import { PlayerLink } from '../player-link/player-link';
+import { OfficialCrew } from '../official-crew/official-crew';
 import { goalieSummary, formatGoalieTime } from '../../../../shared/goalie-statistics.js';
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import { chronologicalGoals, sortRoster } from '../../features/protocol/protocol-order';
-import {
-  OFFICIAL_FIELDS,
-  STAFF_FIELDS,
-  SITUATIONS,
-  periodSummary,
-} from '../../features/protocol/protocol-sheet';
+import { STAFF_FIELDS, periodSummary } from '../../features/protocol/protocol-sheet';
 @Component({
   selector: 'app-protocol-sheet',
   standalone: true,
-  imports: [],
+  imports: [PlayerLink, OfficialCrew],
   templateUrl: './protocol-sheet.html',
   styleUrl: './protocol-sheet.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -30,7 +28,6 @@ export class ProtocolSheet {
     shootout: 'Броски для определения победителя',
     technical: 'Технический результат',
   };
-  protected readonly officials = OFFICIAL_FIELDS;
   protected readonly staffFields = STAFF_FIELDS;
   readonly summary = computed(() => {
     return periodSummary(this.protocol(), this.match(), this.tournament().rules);
@@ -70,9 +67,8 @@ export class ProtocolSheet {
       },
     ];
   });
-  situation(code: string) {
-    return SITUATIONS.find(([key]) => key === code)?.[1] || code;
-  }
+  readonly goalSituationLabel = goalSituationLabel;
+  readonly penaltyStart = penaltyStart;
   onIce(ids: number[] | undefined) {
     return ids?.map((id) => this.number(id)).join(', ') || '—';
   }

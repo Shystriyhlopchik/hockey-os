@@ -1,0 +1,5 @@
+@if (playerId(); as id) {
+  <a [routerLink]="['/players', id]">{{ name() }}</a>
+} @else {
+  <span>{{ name() }}</span>
+}

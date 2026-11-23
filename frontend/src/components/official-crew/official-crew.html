@@ -1,0 +1,13 @@
+<section class="official-crew" aria-label="Судейская бригада">
+  <h3>Судейская бригада</h3>
+  <dl>
+    @for (person of crew(); track person.key) {
+      <div>
+        <dt>{{ person.role }}</dt>
+        <dd>{{ person.name }}</dd>
+      </div>
+    } @empty {
+      <p class="muted">Сведения о судейской бригаде не заполнены.</p>
+    }
+  </dl>
+</section>

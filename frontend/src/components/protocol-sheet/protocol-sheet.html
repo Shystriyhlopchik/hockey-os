@@ -27,6 +27,15 @@
     }}
     · {{ outcomes[protocol().resolution] }}. Время событий — от начала матча.
   </p>
+  @if (protocol().bestPlayerId) {
+    <p>
+      <b>Лучший игрок матча: </b
+      ><app-player-link
+        [playerId]="protocol().bestPlayerId"
+        [name]="name(protocol().bestPlayerId)"
+      />
+    </p>
+  }
   @for (side of sides(); track side.id) {
     <section class="sheet-team">
       <h3>Команда {{ side.letter }} · {{ team(side.id) }}</h3>
@@ -44,7 +53,7 @@
           @for (r of side.roster; track r.playerId) {
             <tr>
               <td>{{ r.number }}</td>
-              <td>{{ name(r.playerId) }}</td>
+              <td><app-player-link [playerId]="r.playerId" [name]="name(r.playerId)" /></td>
               <td>{{ r.captain === 'C' ? 'К' : r.captain === 'A' ? 'А' : '—' }}</td>
               <td>
                 {{ r.position === 'G' ? 'ВР' : r.position === 'D' ? 'З' : 'Н' }}
@@ -88,10 +97,16 @@
                 <td>{{ i + 1 }}</td>
                 <td>{{ g.period }}</td>
                 <td>{{ g.time }}</td>
-                <td>{{ number(g.scorerId) }}</td>
-                <td>{{ number(g.assist1Id) }}</td>
-                <td>{{ number(g.assist2Id) }}</td>
-                <td>{{ situation(g.situation) }}</td>
+                <td>
+                  <app-player-link [playerId]="g.scorerId" [name]="'' + number(g.scorerId)" />
+                </td>
+                <td>
+                  <app-player-link [playerId]="g.assist1Id" [name]="'' + number(g.assist1Id)" />
+                </td>
+                <td>
+                  <app-player-link [playerId]="g.assist2Id" [name]="'' + number(g.assist2Id)" />
+                </td>
+                <td>{{ goalSituationLabel(g) }}</td>
                 <td>{{ onIce(g.homeOnIce) }}</td>
                 <td>{{ onIce(g.awayOnIce) }}</td>
               </tr>
@@ -104,7 +119,7 @@
         <thead>
           <tr>
             <th>П.</th>
-            <th>Время</th>
+            <th>Назначено (при отличии)</th>
             <th>№</th>
             <th>Мин.</th>
             <th>Нарушение</th>
@@ -118,12 +133,19 @@
             @if (p.teamId === side.id) {
               <tr>
                 <td>{{ p.period }}</td>
-                <td>{{ p.time }}</td>
-                <td>{{ p.playerId ? number(p.playerId) : 'К' }}</td>
+                <td>{{ p.time !== penaltyStart(p) ? p.time : '—' }}</td>
+                <td>
+                  <app-player-link
+                    [playerId]="p.playerId"
+                    [name]="p.playerId ? '' + number(p.playerId) : 'К'"
+                  />
+                </td>
                 <td>{{ p.minutes }}</td>
                 <td>{{ p.code }}</td>
-                <td>{{ number(p.servedById) }}</td>
-                <td>{{ p.start || '—' }}</td>
+                <td>
+                  <app-player-link [playerId]="p.servedById" [name]="'' + number(p.servedById)" />
+                </td>
+                <td>{{ penaltyStart(p) || '—' }}</td>
                 <td>{{ p.end || '—' }}</td>
               </tr>
             }
@@ -186,7 +208,12 @@
             <tr>
               <td>{{ team(g.teamId) }}</td>
               <td>
-                {{ g.playerId ? number(g.playerId) + ' · ' + name(g.playerId) : 'Пустые ворота' }}
+                <app-player-link
+                  [playerId]="g.playerId"
+                  [name]="
+                    g.playerId ? number(g.playerId) + ' · ' + name(g.playerId) : 'Пустые ворота'
+                  "
+                />
               </td>
               <td>{{ g.from }}</td>
               <td>{{ g.to }}</td>
@@ -218,8 +245,14 @@
             <tr>
               <td>{{ i + 1 }}{{ i === 0 ? ' *' : '' }}</td>
               <td>{{ team(s.teamId) }}</td>
-              <td>{{ number(s.playerId) }} · {{ name(s.playerId) }}</td>
-              <td>{{ number(s.goalieId) }} · {{ name(s.goalieId) }}</td>
+              <td>
+                {{ number(s.playerId) }} ·
+                <app-player-link [playerId]="s.playerId" [name]="name(s.playerId)" />
+              </td>
+              <td>
+                {{ number(s.goalieId) }} ·
+                <app-player-link [playerId]="s.goalieId" [name]="name(s.goalieId)" />
+              </td>
               <td>{{ s.scored ? 'Гол' : 'Нет гола' }}</td>
             </tr>
           }
@@ -247,8 +280,14 @@
               <td>{{ s.period }}</td>
               <td>{{ s.time }}</td>
               <td>{{ team(s.teamId) }}</td>
-              <td>{{ number(s.playerId) }} · {{ name(s.playerId) }}</td>
-              <td>{{ number(s.goalieId) }} · {{ name(s.goalieId) }}</td>
+              <td>
+                {{ number(s.playerId) }} ·
+                <app-player-link [playerId]="s.playerId" [name]="name(s.playerId)" />
+              </td>
+              <td>
+                {{ number(s.goalieId) }} ·
+                <app-player-link [playerId]="s.goalieId" [name]="name(s.goalieId)" />
+              </td>
             </tr>
           }
         </tbody>
@@ -271,7 +310,9 @@
           @for (keeper of keepers().rows; track keeper.playerId) {
             <tr>
               <td>{{ team(keeper.teamId) }}</td>
-              <td>{{ name(keeper.playerId) }}</td>
+              <td>
+                <app-player-link [playerId]="keeper.playerId" [name]="name(keeper.playerId)" />
+              </td>
               <td>{{ keeper.complete ? goalieTime(keeper.seconds) : 'Нет данных' }}</td>
               <td>{{ keeper.complete ? keeper.goalsAgainst : 'Нет данных' }}</td>
             </tr>
@@ -281,18 +322,7 @@
       <p>Пустые ворота и серия буллитов не включаются в личные пропущенные шайбы.</p>
     </section>
   }
-  <section>
-    <h3>Бригада судей</h3>
-    <div class="sheet-officials">
-      <p><b>Главный судья</b>{{ protocol().referee || '—' }}</p>
-      @for (field of officials; track field[0]) {
-        <p>
-          <b>{{ field[1] }}</b
-          >{{ protocol().sheet?.officials?.[field[0]] || '—' }}
-        </p>
-      }
-    </div>
-  </section>
+  <app-official-crew [protocol]="protocol()" />
   <section class="sheet-remarks">
     <h3>Замечания и уведомления</h3>
     @for (
