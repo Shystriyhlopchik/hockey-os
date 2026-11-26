@@ -1,0 +1,46 @@
+<section
+  class="image-editor"
+  [attr.aria-label]="kind() === 'player' ? 'Фотография игрока' : 'Логотип команды'"
+>
+  <div class="preview" [class.logo]="kind() === 'team'">
+    @if (imageUrl()) {
+      <img
+        [src]="imageUrl()"
+        [alt]="
+          kind() === 'player' ? 'Предпросмотр фотографии игрока' : 'Предпросмотр логотипа команды'
+        "
+      />
+    } @else {
+      <span>{{ kind() === 'player' ? 'ФОТО' : 'ЛОГО' }}</span>
+    }
+  </div>
+  <div class="image-actions">
+    <strong>{{ kind() === 'player' ? 'Фотография игрока' : 'Логотип команды' }}</strong>
+    <label class="btn secondary upload-button" [class.disabled]="disabled()">
+      {{ imageUrl() ? 'Заменить изображение' : 'Загрузить изображение' }}
+      <input
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        [disabled]="disabled()"
+        (change)="choose($event)"
+        [attr.aria-label]="
+          kind() === 'player' ? 'Загрузить фотографию игрока' : 'Загрузить логотип команды'
+        "
+      />
+    </label>
+    @if (imageUrl()) {
+      <button
+        type="button"
+        class="text-button danger"
+        [disabled]="disabled()"
+        (click)="removed.emit()"
+      >
+        {{ kind() === 'player' ? 'Удалить фотографию' : 'Удалить логотип' }}
+      </button>
+    }
+    <p>
+      JPEG, PNG или WebP · до 5 МБ. Изменение применяется кнопкой «Сохранить». Отмена сохраняет
+      прежнее изображение.
+    </p>
+  </div>
+</section>

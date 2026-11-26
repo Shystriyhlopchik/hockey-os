@@ -2,11 +2,13 @@ import { ChangeDetectionStrategy, Component, computed, input } from '@angular/co
 import { RouterLink } from '@angular/router';
 import { LeagueMatch, Team } from '../../core/models/league';
 import { matchDate, matchTime } from '../../core/format/match-format';
+import { ScheduleStatus } from '../schedule-status/schedule-status';
+import { hasPublicSchedule } from '../../features/calendar/schedule-status';
 import { TeamBadge } from '../team-badge/team-badge';
 @Component({
   selector: 'app-match-card',
   standalone: true,
-  imports: [RouterLink, TeamBadge],
+  imports: [RouterLink, TeamBadge, ScheduleStatus],
   templateUrl: './match-card.html',
   styleUrl: './match-card.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -21,6 +23,9 @@ export class MatchCard {
   );
   protected readonly away = computed(() =>
     this.teams().find((team) => team.id === this.match().awayTeamId),
+  );
+  protected readonly showSchedule = computed(
+    () => this.office() || hasPublicSchedule(this.match()),
   );
   protected readonly date = matchDate;
   protected readonly time = matchTime;

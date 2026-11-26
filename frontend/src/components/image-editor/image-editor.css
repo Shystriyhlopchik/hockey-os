@@ -1,0 +1,95 @@
+:host {
+  display: block;
+  margin: 20px 0;
+}
+.image-editor {
+  display: flex;
+  gap: 20px;
+  padding: 18px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+.preview {
+  width: 100px;
+  height: 125px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  background: var(--surface-raised);
+  overflow: hidden;
+}
+.preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 20%;
+}
+.preview.logo {
+  height: 100px;
+  background: repeating-conic-gradient(#fff 0% 25%, #e6e6e6 0% 50%) 50%/16px 16px;
+}
+.preview.logo img {
+  object-fit: contain;
+  padding: 5px;
+}
+.preview span {
+  font:
+    500 22px Oswald,
+    sans-serif;
+  color: var(--muted);
+}
+.image-actions {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.image-actions strong,
+.image-actions p {
+  flex-basis: 100%;
+}
+.image-actions p {
+  font-size: 11px;
+  color: var(--muted);
+  margin: 0;
+  line-height: 1.5;
+}
+.upload-button {
+  position: relative;
+  overflow: hidden;
+  margin: 0;
+}
+.upload-button input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+}
+.upload-button:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+.disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+@media (max-width: 480px) {
+  .image-editor {
+    padding: 12px;
+    gap: 12px;
+  }
+  .preview {
+    width: 70px;
+    height: 90px;
+  }
+  .preview.logo {
+    height: 70px;
+  }
+  .image-actions .btn {
+    font-size: 11px;
+    padding: 9px;
+  }
+}

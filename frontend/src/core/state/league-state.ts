@@ -1,3 +1,4 @@
+import { createImageDraft } from '../../features/media/image-draft';
 import { goalieSummary } from '../../../../shared/goalie-statistics.js';
 import { compareRoster, sortRoster } from '../../features/protocol/protocol-order';
 import { emptySnapshot } from './empty-snapshot';
@@ -44,6 +45,8 @@ import {
   scheduleRowsInGroup,
   changedScheduleRows,
   scheduleChanges,
+  scheduleRowPatch,
+  confirmSelectedScheduleRows,
   applyScheduleBulk,
 } from '../../features/calendar/schedule-editor';
 import {
@@ -81,6 +84,7 @@ function createLeagueState() {
   const tournamentId = signal(Number(localStorage.getItem('hockey_tournament') || 1));
   const search = signal('');
   const statusFilter = signal('all');
+  const scheduleFilter = signal('all');
   const positionFilter = signal('all');
   const teamFilter = signal(0);
   const seasonId = signal(0);
@@ -223,6 +227,9 @@ function createLeagueState() {
       matchFeed().filter(
         (m) =>
           (statusFilter() === 'all' || m.status === statusFilter()) &&
+          (scheduleFilter() === 'all' ||
+            (m.status === 'scheduled' &&
+              (scheduleFilter() === 'confirmed' ? m.scheduleConfirmed : !m.scheduleConfirmed))) &&
           (!teamFilter() || [m.homeTeamId, m.awayTeamId].includes(teamFilter())) &&
           `${teamName(m.homeTeamId)} ${teamName(m.awayTeamId)} ${m.venue} ${tournamentName(m.tournamentId)}`
             .toLowerCase()
@@ -345,13 +352,21 @@ function createLeagueState() {
     return scheduleGroups(form().rows || []);
   });
   const calendarRows = computed(() => {
-    return scheduleRowsInGroup(form().rows || [], form().groupKey);
+    return scheduleRowsInGroup(form().rows || [], form().groupKey).filter(
+      (row) =>
+        !form().onlyUnconfirmed || (row.status === 'scheduled' && !row.expected.scheduleConfirmed),
+    );
   });
   const calendarChangeCount = computed(() => {
     return changedScheduleRows(form().rows || []).length;
   });
+  const imageDraft = createImageDraft({ form, modal, error });
   const hasUnsavedChanges = computed(() => {
-    return dirty() || (modal() === 'calendar' && calendarChangeCount() > 0);
+    return (
+      dirty() ||
+      (modal() === 'calendar' && calendarChangeCount() > 0) ||
+      (['player', 'team'].includes(modal()) && imageDraft.changed())
+    );
   });
   const protocolTeams = computed(() => {
     return detail() ? [detail().match.homeTeamId, detail().match.awayTeamId] : [];
@@ -565,6 +580,7 @@ function createLeagueState() {
         groupKey: nearestScheduleGroup(rows),
         bulkDate: '',
         bulkVenue: '',
+        onlyUnconfirmed: false,
       });
       modal.set('calendar');
     }, '');
@@ -578,6 +594,7 @@ function createLeagueState() {
     )
       return;
     clearPlayerIdentity();
+    imageDraft.reset();
     modal.set('');
     error.set('');
   }
@@ -586,6 +603,7 @@ function createLeagueState() {
       void editCalendar(item);
       return;
     }
+    imageDraft.reset();
     const t = tournament();
     if (['registration', 'schedule', 'playoff'].includes(kind) && !t) {
       error.set('Сначала создайте или выберите турнир.');
@@ -677,12 +695,15 @@ function createLeagueState() {
         venue: item?.venue || 'Новое Поколение',
         slotMinutes: item?.slotMinutes || 90,
         isMatch: !!item?.tournamentId,
+        scheduleConfirmed: item?.scheduleConfirmed === true,
         expected: item?.tournamentId
           ? {
               round: item.round,
               startsAt: item.startsAt,
               venue: item.venue,
               slotMinutes: item.slotMinutes,
+              scheduleConfirmed: item.scheduleConfirmed,
+              scheduleVersion: item.scheduleVersion,
             }
           : undefined,
       });
@@ -769,13 +790,14 @@ function createLeagueState() {
             await request(
               `workspace/${plural[k]}${f.id ? '/' + f.id : ''}`,
               f.id ? 'PATCH' : 'POST',
-              f,
+              k === 'player' || k === 'team' ? imageDraft.body(f, k) : f,
             );
           } catch (error) {
             if (k === 'player') await checkPlayerIdentity();
             throw error;
           }
         }
+        imageDraft.reset();
         modal.set('');
         await refresh();
       },
@@ -1008,10 +1030,49 @@ function createLeagueState() {
       busy.set(false);
     }
   }
+  function patchScheduleForm(path: DraftPath, value: unknown) {
+    const key = path[0];
+    const patch = scheduleRowPatch(form(), { [key]: value });
+    form.update((current) => ({ ...current, ...patch }));
+  }
+  function patchCalendarRow(row: any, patch: Record<string, unknown>) {
+    patchFormItem(row, scheduleRowPatch(row, patch));
+  }
+  function selectCalendarRows(selected: boolean) {
+    const ids = new Set(
+      calendarRows()
+        .filter((row) => row.status === 'scheduled')
+        .map((row) => row.id),
+    );
+    form.update((current) => ({
+      ...current,
+      rows: current.rows.map((row: any) => (ids.has(row.id) ? { ...row, selected } : row)),
+    }));
+  }
+  function confirmCalendarRows(confirmed: boolean) {
+    try {
+      const next = structuredClone(form());
+      const visible = new Set(calendarRows().map((row) => row.id));
+      confirmSelectedScheduleRows(
+        next.rows.filter((row: any) => visible.has(row.id)),
+        confirmed,
+      );
+      form.set(next);
+      error.set('');
+    } catch (failure) {
+      error.set(failure instanceof Error ? failure.message : 'Проверьте расписание');
+    }
+  }
   function applyCalendarBulk() {
     try {
       const next = structuredClone(form());
-      applyScheduleBulk(next.rows, next.groupKey, next.bulkDate, next.bulkVenue);
+      const visible = new Set(calendarRows().map((row) => row.id));
+      applyScheduleBulk(
+        next.rows.filter((row: any) => visible.has(row.id)),
+        next.groupKey,
+        next.bulkDate,
+        next.bulkVenue,
+      );
       form.set(next);
       error.set('');
     } catch (failure) {
@@ -1079,6 +1140,7 @@ function createLeagueState() {
       trackPageView(event.urlAfterRedirects);
       search.set('');
       statusFilter.set('all');
+      scheduleFilter.set('all');
       teamFilter.set(0);
       error.set('');
       if (route() === 'tournaments' && entityId()) selectTournament(entityId());
@@ -1130,6 +1192,7 @@ function createLeagueState() {
     tournamentId,
     search,
     statusFilter,
+    scheduleFilter,
     positionFilter,
     teamFilter,
     seasonId,
@@ -1196,6 +1259,7 @@ function createLeagueState() {
     calendarGroups,
     calendarRows,
     calendarChangeCount,
+    imageDraft,
     hasUnsavedChanges,
     protocolTeams,
     protocolTimeHint,
@@ -1233,6 +1297,10 @@ function createLeagueState() {
     hasEditableSchedule,
     editCalendar,
     applyCalendarBulk,
+    patchScheduleForm,
+    patchCalendarRow,
+    selectCalendarRows,
+    confirmCalendarRows,
     closeModal,
     open,
     toggleList,

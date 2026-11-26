@@ -37,6 +37,15 @@
     <span class="muted">Время московское · UTC+3</span>
   </div>
   <div class="toolbar">
+    <select
+      [ngModel]="vm.scheduleFilter()"
+      (ngModelChange)="vm.scheduleFilter.set($event)"
+      aria-label="Согласование расписания"
+    >
+      <option value="all">Любое расписание</option>
+      <option value="confirmed">Только подтверждённые</option>
+      <option value="unconfirmed">Дата уточняется</option>
+    </select>
     <input
       class="search"
       [ngModel]="vm.search()"
@@ -62,6 +71,9 @@
       }
     </select>
   </div>
+  <p class="muted">
+    Даты публикуются после согласования команд. Матчи без подтверждения сохраняют свой тур.
+  </p>
   <div class="calendar-list">
     @for (match of vm.filteredMatches(); track match.id) {
       <app-match-row

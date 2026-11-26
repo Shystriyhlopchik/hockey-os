@@ -60,7 +60,11 @@
               <td>{{ r.number }}</td>
               <td>
                 <a [routerLink]="'/players/' + r.playerId"
-                  ><b>{{ r.player?.name }}</b></a
+                  ><app-player-avatar
+                    [name]="r.player?.name || 'Хоккеист'"
+                    [photoUrl]="r.player?.photoUrl"
+                    size="sm"
+                  /><b>{{ r.player?.name }}</b></a
                 >
                 <span class="badge">{{
                   r.captain === 'C' ? 'Капитан' : r.captain === 'A' ? 'Ассистент' : ''

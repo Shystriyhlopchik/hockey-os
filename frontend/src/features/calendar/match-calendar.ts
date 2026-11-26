@@ -3,6 +3,7 @@ export interface CalendarMatch {
   tournamentId: number;
   startsAt: string | null;
   status: string;
+  scheduleConfirmed?: boolean;
 }
 export interface CalendarTournament {
   id: number;
@@ -46,7 +47,11 @@ export function upcomingMatches<T extends CalendarMatch>(
 ): T[] {
   return sortMatches(
     matches.filter(
-      (m) => m.status === 'scheduled' && startTime(m) !== Infinity && startTime(m) >= now,
+      (m) =>
+        m.status === 'scheduled' &&
+        m.scheduleConfirmed === true &&
+        startTime(m) !== Infinity &&
+        startTime(m) >= now,
     ),
   ).slice(0, limit);
 }

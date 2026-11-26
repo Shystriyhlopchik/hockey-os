@@ -1,3 +1,4 @@
+import { PlayerAvatar } from '../../components/player-avatar/player-avatar';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -6,7 +7,7 @@ import { GoalieTable } from '../../components/goalie-table/goalie-table';
 @Component({
   selector: 'app-players-page',
   standalone: true,
-  imports: [FormsModule, RouterLink, GoalieTable],
+  imports: [PlayerAvatar, FormsModule, RouterLink, GoalieTable],
   templateUrl: './players-page.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

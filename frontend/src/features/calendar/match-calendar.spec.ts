@@ -18,6 +18,7 @@ const game = (id, tournamentId, startsAt, status = 'scheduled') => ({
   tournamentId,
   startsAt,
   status,
+  scheduleConfirmed: true,
 });
 const ids = (matches) => matches.map((m) => m.id);
 
@@ -143,4 +144,15 @@ test('Home results show the latest four published matches after filtering by lea
   ];
   assert.deepEqual(ids(recentTournamentResults(matches, 1)), [6, 5, 4, 3]);
   assert.deepEqual(ids(recentTournamentResults(matches, 1, 2)), [6, 5]);
+});
+
+test('Tentative dates never appear in the upcoming feed, even within the next two days', () => {
+  const now = Date.parse('2026-11-12T12:00:00Z');
+  const matches = [
+    { ...game(1, 1, '2026-11-13T12:00:00Z'), scheduleConfirmed: false },
+    { ...game(2, 1, '2026-11-13T13:00:00Z'), scheduleConfirmed: undefined },
+    game(3, 2, '2026-11-14T12:00:00Z'),
+  ];
+  assert.deepEqual(ids(upcomingActiveMatches(matches, tournaments, now)), [3]);
+  assert.deepEqual(ids(listPublicMatches(matches, tournaments)), [1, 2, 3]);
 });

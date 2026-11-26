@@ -170,6 +170,15 @@
             </p>
           }
         }
+        @if (vm.modal() === 'team' || vm.modal() === 'player') {
+          <app-image-editor
+            [kind]="vm.modal() === 'player' ? 'player' : 'team'"
+            [imageUrl]="vm.imageDraft.url()"
+            [disabled]="vm.busy()"
+            (fileSelected)="vm.imageDraft.choose($event)"
+            (removed)="vm.imageDraft.remove()"
+          />
+        }
         @if (vm.modal() === 'team') {
           <label
             >Название<input
@@ -612,7 +621,7 @@
           <p class="muted">
             {{
               vm.form().isMatch
-                ? 'Перенос выбранного матча.'
+                ? 'Предварительное расписание видно только в кабинете. Подтвердите дату после согласования команд.'
                 : 'Создание пар по
         числу кругов. По четыре матча в игровой день, с интервалом в неделю.'
             }}
@@ -622,14 +631,14 @@
               type="datetime-local"
               name="start"
               [ngModel]="vm.form().startsAt"
-              (ngModelChange)="vm.patchForm(['startsAt'], $event)"
-              [required]="!vm.form().isMatch" /></label
+              (ngModelChange)="vm.patchScheduleForm(['startsAt'], $event)"
+              [required]="!vm.form().isMatch || vm.form().scheduleConfirmed" /></label
           ><label
             >Площадка<input
               name="venue"
               [ngModel]="vm.form().venue"
-              (ngModelChange)="vm.patchForm(['venue'], $event)"
-              required /></label
+              (ngModelChange)="vm.patchScheduleForm(['venue'], $event)"
+              [required]="!vm.form().isMatch || vm.form().scheduleConfirmed" /></label
           ><label
             >Занятость площадки, минут<input
               type="number"
@@ -637,16 +646,33 @@
               min="60"
               max="300"
               [ngModel]="vm.form().slotMinutes"
-              (ngModelChange)="vm.patchForm(['slotMinutes'], $event)"
+              (ngModelChange)="vm.patchScheduleForm(['slotMinutes'], $event)"
               required
           /></label>
-          <p class="muted">Пересечения команд и площадок проверяются на сервере.</p>
+          @if (vm.form().isMatch) {
+            <label class="check-label"
+              ><input
+                type="checkbox"
+                name="scheduleConfirmed"
+                [ngModel]="vm.form().scheduleConfirmed"
+                (ngModelChange)="vm.patchForm(['scheduleConfirmed'], $event)"
+              />Расписание подтверждено командами</label
+            >
+            <p class="muted">
+              Снимите отметку, если договорённость отменена. При изменении даты, площадки или слота
+              подтверждение снимается; новое время можно подтвердить перед сохранением.
+            </p>
+          }
+          <p class="muted">
+            Проверяем пересечения подтверждённых игр. Предварительные даты не занимают площадку.
+          </p>
         }
         @if (vm.modal() === 'calendar') {
           <p class="calendar-editor-intro">
             <b>{{ vm.form().tournamentName }}</b
             ><br />Сверьте игры с бумажным календарём: меняйте тур, дату, время и площадку. Все
-            правки сохраняются вместе. Время московское.
+            правки сохраняются вместе. До подтверждения даты видны только в кабинете. Время
+            московское.
           </p>
           <label class="calendar-group-select"
             >Тур / этап до изменений<select
@@ -694,10 +720,48 @@
                 (click)="vm.applyCalendarBulk()"
                 [disabled]="!vm.form().bulkDate && !vm.form().bulkVenue.trim()"
               >
-                Применить к выбранным играм
+                Применить к играм в списке
               </button>
             </div>
           }
+          <label class="check-label"
+            ><input
+              type="checkbox"
+              name="onlyUnconfirmed"
+              [ngModel]="vm.form().onlyUnconfirmed"
+              (ngModelChange)="vm.patchForm(['onlyUnconfirmed'], $event)"
+            />Ожидают согласования</label
+          >
+          <div class="schedule-selection-actions">
+            <button
+              class="btn secondary compact"
+              type="button"
+              (click)="vm.selectCalendarRows(true)"
+            >
+              Выбрать все в списке
+            </button>
+            <button
+              class="btn secondary compact"
+              type="button"
+              (click)="vm.selectCalendarRows(false)"
+            >
+              Снять выбор
+            </button>
+            <button
+              class="btn secondary compact"
+              type="button"
+              (click)="vm.confirmCalendarRows(true)"
+            >
+              Подтвердить выбранные
+            </button>
+            <button
+              class="btn secondary compact"
+              type="button"
+              (click)="vm.confirmCalendarRows(false)"
+            >
+              Снять подтверждение у выбранных
+            </button>
+          </div>
           <div class="calendar-edit-list">
             @for (r of vm.calendarRows(); track r.id) {
               <div
@@ -706,6 +770,17 @@
                 [class.calendar-row-moved]="r.stage === 'regular' && r.round !== r.expected.round"
               >
                 <div class="calendar-edit-teams">
+                  @if (r.status === 'scheduled') {
+                    <label class="check-label"
+                      ><input
+                        type="checkbox"
+                        [name]="'select-match-' + r.id"
+                        [ngModel]="r.selected"
+                        (ngModelChange)="vm.patchFormItem(r, { selected: $event })"
+                        [attr.aria-label]="'Выбрать матч №' + r.id"
+                      />Выбрать матч</label
+                    >
+                  }
                   <small
                     >Матч #{{ r.id }} ·
                     {{
@@ -746,16 +821,16 @@
                     type="datetime-local"
                     [name]="'calendar-start-' + r.id"
                     [ngModel]="r.startsAt"
-                    (ngModelChange)="vm.patchFormItem(r, { startsAt: $event })"
+                    (ngModelChange)="vm.patchCalendarRow(r, { startsAt: $event })"
                     [disabled]="r.status !== 'scheduled'"
                 /></label>
                 <label class="calendar-edit-venue"
                   >Площадка<input
                     [name]="'calendar-venue-' + r.id"
                     [ngModel]="r.venue"
-                    (ngModelChange)="vm.patchFormItem(r, { venue: $event })"
+                    (ngModelChange)="vm.patchCalendarRow(r, { venue: $event })"
                     maxlength="200"
-                    required
+                    [required]="r.scheduleConfirmed"
                     [disabled]="r.status !== 'scheduled'"
                 /></label>
                 <label
@@ -763,19 +838,28 @@
                     type="number"
                     [name]="'calendar-slot-' + r.id"
                     [ngModel]="r.slotMinutes"
-                    (ngModelChange)="vm.patchFormItem(r, { slotMinutes: $event })"
+                    (ngModelChange)="vm.patchCalendarRow(r, { slotMinutes: $event })"
                     min="60"
                     max="300"
                     required
                     [disabled]="r.status !== 'scheduled'"
                 /></label>
+                <label class="check-label calendar-confirmation"
+                  ><input
+                    type="checkbox"
+                    [name]="'confirm-match-' + r.id"
+                    [ngModel]="r.scheduleConfirmed"
+                    (ngModelChange)="vm.patchFormItem(r, { scheduleConfirmed: $event })"
+                    [disabled]="r.status !== 'scheduled'"
+                  />Расписание подтверждено командами</label
+                >
               </div>
             }
           </div>
           <p class="calendar-editor-note">
             Номер тура не меняет дату игры — при необходимости измените оба поля. Проверим занятость
-            команд и площадок во всех турнирах. При пересечении ни один матч не будет изменён. Игры
-            плей-офф сохраняют свою серию.
+            команд и площадок среди подтверждённых игр во всех турнирах. При пересечении ни один
+            матч не будет изменён. Игры плей-офф сохраняют свою серию.
           </p>
         }
         @if (vm.modal() === 'playoff') {

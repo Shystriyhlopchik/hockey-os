@@ -59,6 +59,7 @@
       @for (p of vm.players(); track p.id) {
         <tr>
           <td>
+            <app-player-avatar [name]="p.name" [photoUrl]="p.photoUrl" size="sm" />
             <b>{{ p.name }}</b
             ><small
               >{{ vm.playerAffiliation(p.id) }}

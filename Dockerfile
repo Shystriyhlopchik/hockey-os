@@ -31,7 +31,7 @@ COPY --from=production-dependencies --chown=node:node /app/backend/node_modules 
 COPY --from=build --chown=node:node /app/backend/dist ./backend/dist
 COPY --from=build --chown=node:node /app/frontend/dist/hockey/browser ./frontend/dist/hockey/browser
 COPY --from=build --chown=node:node /app/shared ./shared
-RUN mkdir -p /app/uploads/news && chown -R node:node /app/uploads
+RUN mkdir -p /app/uploads/news /app/uploads/players /app/uploads/teams && chown -R node:node /app/uploads
 USER node
 EXPOSE 4100
 CMD ["node", "backend/dist/main.js"]

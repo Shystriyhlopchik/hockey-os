@@ -1,7 +1,8 @@
 <a class="match-row" [routerLink]="(office() ? '/office/protocol/' : '/matches/') + match().id"
   ><div class="match-date">
-    <b>{{ date(match().startsAt) }}</b
+    <b>{{ showSchedule() ? date(match().startsAt) : 'Дата уточняется' }}</b
     ><span>{{ tournamentName() }} · Тур {{ match().round }}</span>
+    <app-schedule-status [match]="match()" />
   </div>
   <div class="teams">
     <span class="home"
@@ -13,15 +14,23 @@
             ' :
       ' +
             match().awayScore
-          : time(match().startsAt)
-      }}<small>{{ match().status === 'completed' ? 'Итоговый счёт' : 'МСК' }}</small></strong
+          : showSchedule()
+            ? time(match().startsAt)
+            : 'VS'
+      }}<small>{{
+        match().status === 'completed'
+          ? 'Итоговый счёт'
+          : showSchedule()
+            ? 'МСК'
+            : 'Ожидаем согласования'
+      }}</small></strong
     ><span class="away"
       ><b>{{ away()?.name || 'Гости' }}</b
       ><app-team-badge [team]="away()" size="sm"
     /></span>
   </div>
   <div class="venue">
-    <span>{{ match().venue }}</span
+    <span>{{ showSchedule() ? match().venue : 'Площадка уточняется' }}</span
     ><small
       >{{
         office()

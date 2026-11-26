@@ -2092,3 +2092,20 @@ table a:hover {
     color: black;
   }
 }
+
+.schedule-selection-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 16px 0;
+}
+.calendar-edit-row > .calendar-confirmation {
+  grid-column: 1 / -1;
+  grid-row: auto;
+}
+.calendar-edit-row .check-label input {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  padding: 0;
+}

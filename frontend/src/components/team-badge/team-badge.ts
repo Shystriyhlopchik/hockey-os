@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input, signal } from '@angular/core';
 import { Team } from '../../core/models/league';
 @Component({
   selector: 'app-team-badge',
@@ -8,6 +8,7 @@ import { Team } from '../../core/models/league';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class TeamBadge {
+  protected readonly failedUrl = signal<string | null | undefined>(undefined);
   readonly team = input<Partial<Team> | null>();
   readonly size = input<'sm' | 'md' | 'lg'>('md');
   protected readonly initials = computed(() => this.team()?.abbreviation || 'ХК');

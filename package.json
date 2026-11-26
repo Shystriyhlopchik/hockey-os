@@ -14,7 +14,9 @@
     "db:stop": "docker compose stop database",
     "setup": "node scripts/setup.mjs",
     "test:news": "node scripts/news.integration.mjs",
-    "test:protocol": "node scripts/protocol-details.integration.mjs"
+    "test:protocol": "node scripts/protocol-details.integration.mjs",
+    "test:media": "node scripts/media.integration.mjs",
+    "test:schedule": "node scripts/schedule.integration.mjs"
   },
   "packageManager": "pnpm@11.25.0",
   "engines": {

@@ -14,6 +14,15 @@
     <option value="scheduled">Ожидают протокола</option>
     <option value="completed">Опубликованные</option>
   </select>
+  <select
+    [ngModel]="vm.scheduleFilter()"
+    (ngModelChange)="vm.scheduleFilter.set($event)"
+    aria-label="Согласование расписания"
+  >
+    <option value="all">Любое расписание</option>
+    <option value="unconfirmed">Ожидают согласования</option>
+    <option value="confirmed">Расписание подтверждено</option>
+  </select>
   @if (vm.canAdmin()) {
     <button
       class="btn primary"
@@ -42,6 +51,7 @@
           <td>
             <span class="muted">#{{ m.id }}</span
             ><br />{{ vm.date(m.startsAt) }}<small>{{ vm.time(m.startsAt) }} МСК</small>
+            <app-schedule-status [match]="m" />
           </td>
           <td>
             <b>{{ vm.teamName(m.homeTeamId) }}</b
@@ -66,11 +76,11 @@
             <a class="btn compact primary" [routerLink]="'/office/protocol/' + m.id"
               >{{ m.status === 'completed' ? 'Открыть' : 'Заполнить' }} ↗</a
             >
-            @if (vm.canAdmin() && m.status === 'scheduled') {
+            @if (m.status === 'scheduled') {
               <button
                 class="icon-btn"
                 (click)="vm.open('schedule', m)"
-                aria-label="Изменить дату матча"
+                aria-label="Изменить и подтвердить расписание матча"
               >
                 ✎
               </button>

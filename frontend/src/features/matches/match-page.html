@@ -6,9 +6,14 @@
         >{{ vm.detail().tournament.name }} · МАТЧ #{{ vm.detail().match.id }}</span
       >
       <p>
-        {{ vm.date(vm.detail().match.startsAt) }} · {{ vm.time(vm.detail().match.startsAt) }} МСК ·
-        {{ vm.detail().match.venue }}
+        @if (hasPublicSchedule(vm.detail().match)) {
+          {{ vm.date(vm.detail().match.startsAt) }} · {{ vm.time(vm.detail().match.startsAt) }} МСК
+          · {{ vm.detail().match.venue }}
+        } @else {
+          Дата, время и площадка уточняются
+        }
       </p>
+      <app-schedule-status [match]="vm.detail().match" />
     </div>
     <div class="protocol-scoreboard public-scoreboard">
       <div>

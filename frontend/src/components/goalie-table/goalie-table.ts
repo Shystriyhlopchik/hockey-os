@@ -1,3 +1,4 @@
+import { PlayerAvatar } from '../player-avatar/player-avatar';
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { PlayerStat } from '../../core/models/league';
@@ -6,7 +7,7 @@ import { formatGoalieTime } from '../../../../shared/goalie-statistics.js';
 @Component({
   selector: 'app-goalie-table',
   standalone: true,
-  imports: [RouterLink],
+  imports: [RouterLink, PlayerAvatar],
   templateUrl: './goalie-table.html',
   styleUrl: './goalie-table.css',
   changeDetection: ChangeDetectionStrategy.OnPush,

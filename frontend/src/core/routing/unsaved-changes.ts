@@ -6,6 +6,7 @@ export const confirmUnsavedChanges: CanDeactivateFn<unknown> = () => {
   if (!state.hasUnsavedChanges()) return true;
   if (!window.confirm('Есть несохранённые изменения. Покинуть страницу?')) return false;
   state.dirty.set(false);
+  state.imageDraft.reset();
   state.modal.set('');
   return true;
 };

@@ -1,0 +1,18 @@
+<span
+  class="player-avatar"
+  [class.small]="size() === 'sm'"
+  [class.large]="size() === 'lg'"
+  [class.feature]="size() === 'feature'"
+  aria-hidden="true"
+>
+  @if (photoUrl() && failedUrl() !== photoUrl()) {
+    <img
+      [src]="photoUrl()"
+      alt=""
+      [loading]="size() === 'sm' ? 'lazy' : 'eager'"
+      (error)="failedUrl.set(photoUrl())"
+    />
+  } @else {
+    <b>{{ initials() }}</b>
+  }
+</span>

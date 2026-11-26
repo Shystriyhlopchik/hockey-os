@@ -13,6 +13,7 @@
       @for (row of displayRows(); track row.tournamentId + ':' + row.teamId + ':' + row.playerId) {
         <tr>
           <td>
+            <app-player-avatar [name]="row.name" [photoUrl]="row.photoUrl" size="sm" />
             @if (linkPlayers()) {
               <a [routerLink]="'/players/' + row.playerId"
                 ><b>{{ row.name }}</b></a

@@ -9,15 +9,21 @@ export interface ScheduleMatch {
   startsAt: string | null;
   venue: string;
   slotMinutes: number;
+  scheduleConfirmed?: boolean;
+  scheduleVersion?: number;
 }
 export interface ScheduleRow extends Omit<ScheduleMatch, 'startsAt'> {
   startsAt: string;
+  selected: boolean;
+  scheduleConfirmed: boolean;
   originalStartsAt: string;
   expected: {
     round: number;
     startsAt: string | null;
     venue: string;
     slotMinutes: number;
+    scheduleConfirmed: boolean;
+    scheduleVersion: number;
   };
 }
 export function scheduleGroupKey(match: Pick<ScheduleMatch, 'stage' | 'round'>): string {
@@ -47,6 +53,8 @@ export function createScheduleRows(matches: readonly ScheduleMatch[]): ScheduleR
       : '';
     return {
       ...match,
+      scheduleConfirmed: match.scheduleConfirmed === true,
+      selected: false,
       startsAt,
       originalStartsAt: startsAt,
       expected: {
@@ -54,6 +62,8 @@ export function createScheduleRows(matches: readonly ScheduleMatch[]): ScheduleR
         startsAt: match.startsAt,
         venue: match.venue,
         slotMinutes: match.slotMinutes,
+        scheduleConfirmed: match.scheduleConfirmed === true,
+        scheduleVersion: match.scheduleVersion ?? 0,
       },
     };
   });
@@ -115,7 +125,8 @@ export function changedScheduleRows(rows: readonly ScheduleRow[]): ScheduleRow[]
       (Number(row.round) !== row.expected.round ||
         row.startsAt !== row.originalStartsAt ||
         row.venue.trim() !== row.expected.venue ||
-        Number(row.slotMinutes) !== row.expected.slotMinutes),
+        Number(row.slotMinutes) !== row.expected.slotMinutes ||
+        row.scheduleConfirmed !== row.expected.scheduleConfirmed),
   );
 }
 export function scheduleChanges(rows: readonly ScheduleRow[]) {
@@ -132,7 +143,7 @@ export function scheduleChanges(rows: readonly ScheduleRow[]) {
     const slotMinutes = Number(row.slotMinutes);
     if (!Number.isInteger(slotMinutes) || slotMinutes < 60 || slotMinutes > 300)
       throw new Error(`Занятость площадки для матча №${row.id}: от 60 до 300 минут`);
-    if (!row.venue.trim() || row.venue.length > 200)
+    if (row.venue.length > 200 || (row.scheduleConfirmed && (!date || !row.venue.trim())))
       throw new Error(`Укажите площадку матча №${row.id} (до 200 символов)`);
     return {
       id: row.id,
@@ -140,6 +151,7 @@ export function scheduleChanges(rows: readonly ScheduleRow[]) {
       startsAt: date?.toISOString() ?? null,
       venue: row.venue.trim(),
       slotMinutes,
+      scheduleConfirmed: row.scheduleConfirmed,
       expected: { ...row.expected },
     };
   });
@@ -154,7 +166,28 @@ export function applyScheduleBulk(
   if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error('Укажите дату тура');
   for (const row of scheduleRowsInGroup(rows, key)) {
     if (row.status !== 'scheduled') continue;
-    if (date) row.startsAt = date + 'T' + (row.startsAt.slice(11, 16) || '12:00');
-    if (venue.trim()) row.venue = venue.trim();
+    const startsAt = date ? date + 'T' + (row.startsAt.slice(11, 16) || '12:00') : row.startsAt;
+    const nextVenue = venue.trim() || row.venue;
+    Object.assign(row, scheduleRowPatch(row, { startsAt, venue: nextVenue }));
   }
+}
+
+export function scheduleRowPatch(
+  row: Pick<ScheduleRow, 'startsAt' | 'venue' | 'slotMinutes'>,
+  patch: Partial<ScheduleRow>,
+): Partial<ScheduleRow> {
+  const changed = (['startsAt', 'venue', 'slotMinutes'] as const).some(
+    (key) => key in patch && patch[key] !== row[key],
+  );
+  return changed ? { ...patch, scheduleConfirmed: false } : patch;
+}
+export function confirmSelectedScheduleRows(rows: ScheduleRow[], confirmed: boolean): void {
+  const selected = rows.filter((row) => row.selected && row.status === 'scheduled');
+  if (!selected.length) throw new Error('Сначала выберите матчи');
+  if (
+    confirmed &&
+    selected.some((row) => !row.startsAt || !row.venue.trim() || !row.homeTeamId || !row.awayTeamId)
+  )
+    throw new Error('У выбранных матчей должны быть указаны дата, время, площадка и обе команды');
+  for (const row of selected) row.scheduleConfirmed = confirmed;
 }

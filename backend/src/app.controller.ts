@@ -1,6 +1,9 @@
+import {FileInterceptor} from '@nestjs/platform-express';
+import {mediaBody,MAX_IMAGE_BYTES} from './media/media.service';
+import type {ImageUpload} from './media/media.service';
 import {goalSituationLabel,penaltyStart,OFFICIAL_ROLES} from '../../shared/protocol-details.js';
 import {goalieSummary,formatGoalieTime} from '../../shared/goalie-statistics.js';
-import {Controller,Get,Post,Patch,Delete,Body,Param,Req,Res,ParseIntPipe,UnauthorizedException,HttpCode} from '@nestjs/common';
+import {Controller,Get,Post,Patch,Delete,Body,Param,Req,Res,ParseIntPipe,UnauthorizedException,HttpCode,UseInterceptors,UploadedFile} from '@nestjs/common';
 import {JwtService} from '@nestjs/jwt';
 import type {Response} from 'express';
 import {AppService} from './app.service';
@@ -38,11 +41,11 @@ import {sortProtocolRoster,chronologicalProtocolGoals} from './domain';
   @Post('workspace/tournaments/:id/launch') launch(@Param('id',ParseIntPipe) id:number,@Req() r:AuthRequest){return this.app.launch(r.actor,id);}
   @Post('workspace/tournaments/:id/playoff') playoff(@Param('id',ParseIntPipe) id:number,@Body() b:any,@Req() r:AuthRequest){return this.app.startPlayoff(r.actor,id,b.size);}
   @Post('workspace/seasons') season(@Body() b:any,@Req() r:AuthRequest){return this.app.season(r.actor,b);}
-  @Post('workspace/teams') createTeam(@Body() b:any,@Req() r:AuthRequest){return this.app.team(r.actor,b);}
-  @Patch('workspace/teams/:id') team(@Param('id',ParseIntPipe) id:number,@Body() b:any,@Req() r:AuthRequest){return this.app.team(r.actor,b,id);}
+  @Post('workspace/teams') @UseInterceptors(FileInterceptor('image',{limits:{fileSize:MAX_IMAGE_BYTES,files:1,fields:1,fieldSize:1024*1024}})) createTeam(@Body() b:any,@Req() r:AuthRequest,@UploadedFile() file?:ImageUpload){return this.app.team(r.actor,mediaBody(b),undefined,file);}
+  @Patch('workspace/teams/:id') @UseInterceptors(FileInterceptor('image',{limits:{fileSize:MAX_IMAGE_BYTES,files:1,fields:1,fieldSize:1024*1024}})) team(@Param('id',ParseIntPipe) id:number,@Body() b:any,@Req() r:AuthRequest,@UploadedFile() file?:ImageUpload){return this.app.team(r.actor,mediaBody(b),id,file);}
   @Post('workspace/players/check-name') @HttpCode(200) checkPlayerName(@Body() b:any,@Req() r:AuthRequest){return this.app.checkPlayerName(r.actor,b);}
-  @Post('workspace/players') createPlayer(@Body() b:any,@Req() r:AuthRequest){return this.app.player(r.actor,b);}
-  @Patch('workspace/players/:id') player(@Param('id',ParseIntPipe) id:number,@Body() b:any,@Req() r:AuthRequest){return this.app.player(r.actor,b,id);}
+  @Post('workspace/players') @UseInterceptors(FileInterceptor('image',{limits:{fileSize:MAX_IMAGE_BYTES,files:1,fields:1,fieldSize:1024*1024}})) createPlayer(@Body() b:any,@Req() r:AuthRequest,@UploadedFile() file?:ImageUpload){return this.app.player(r.actor,mediaBody(b),undefined,file);}
+  @Patch('workspace/players/:id') @UseInterceptors(FileInterceptor('image',{limits:{fileSize:MAX_IMAGE_BYTES,files:1,fields:1,fieldSize:1024*1024}})) player(@Param('id',ParseIntPipe) id:number,@Body() b:any,@Req() r:AuthRequest,@UploadedFile() file?:ImageUpload){return this.app.player(r.actor,mediaBody(b),id,file);}
   @Get('workspace/players/:id/deletion') checkPlayerDeletion(@Param('id',ParseIntPipe) id:number,@Req() r:AuthRequest){return this.app.checkPlayerDeletion(r.actor,id);}
   @Delete('workspace/players/:id') removePlayer(@Param('id',ParseIntPipe) id:number,@Body() b:any,@Req() r:AuthRequest){return this.app.removePlayer(r.actor,id,b);}
   @Post('workspace/registrations') registration(@Body() b:any,@Req() r:AuthRequest){return this.app.registration(r.actor,b);}

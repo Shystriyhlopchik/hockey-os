@@ -3,8 +3,12 @@
   @if (first(); as leader) {
     <a class="leader-feature" [routerLink]="'/players/' + leader.playerId"
       ><span class="player-number">{{ leader[metric()] }}</span
-      ><span class="player-monogram" aria-hidden="true">{{ initials(leader.name) }}</span
-      ><span class="player-caption"
+      ><app-player-avatar
+        class="leader-portrait"
+        [name]="leader.name"
+        [photoUrl]="leader.photoUrl"
+        size="feature"
+      /><span class="player-caption"
         >{{ team(leader.teamId)?.name }}<b>{{ leader.name }}</b></span
       ></a
     >

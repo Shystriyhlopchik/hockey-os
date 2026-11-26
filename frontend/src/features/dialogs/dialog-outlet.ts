@@ -1,3 +1,4 @@
+import { ImageEditor } from '../../components/image-editor/image-editor';
 import { DialogFocus } from '../../components/dialog-focus/dialog-focus';
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -6,7 +7,7 @@ import { LEAGUE_STATE } from '../../core/state/league-state';
 @Component({
   selector: 'app-dialog-outlet',
   standalone: true,
-  imports: [DialogFocus, FormsModule, RouterLink],
+  imports: [DialogFocus, FormsModule, RouterLink, ImageEditor],
   templateUrl: './dialog-outlet.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

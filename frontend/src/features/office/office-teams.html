@@ -29,7 +29,12 @@
           <div>
             <span class="jersey">{{ r.number }}</span
             ><span
-              ><b>{{ r.player?.name }}</b
+              ><app-player-avatar
+                [name]="r.player?.name || 'Хоккеист'"
+                [photoUrl]="r.player?.photoUrl"
+                size="sm"
+              />
+              <b>{{ r.player?.name }}</b
               ><small
                 >{{ vm.positions[r.player?.position] }}
                 {{ r.captain ? '· ' + r.captain : '' }}</small

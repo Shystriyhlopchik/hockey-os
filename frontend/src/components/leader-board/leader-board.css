@@ -30,22 +30,10 @@
     sans-serif;
   color: #ffffff06;
 }
-.player-monogram {
+.leader-portrait {
   position: absolute;
-  right: 30px;
-  top: 15px;
-  width: 120px;
-  height: 140px;
-  display: grid;
-  place-items: center;
-  font:
-    500 54px Oswald,
-    sans-serif;
-  letter-spacing: -4px;
-  color: #e0e2e4;
-  background: linear-gradient(150deg, #3e454e, #22272e);
-  clip-path: polygon(15% 15%, 35% 0, 65% 0, 85% 15%, 100% 100%, 0 100%);
-  opacity: 0.75;
+  right: 24px;
+  top: 10px;
 }
 .player-caption {
   position: absolute;
@@ -102,7 +90,7 @@
   .leader-feature {
     height: 160px;
   }
-  .player-monogram {
+  .leader-portrait {
     height: 110px;
     width: 90px;
     font-size: 40px;

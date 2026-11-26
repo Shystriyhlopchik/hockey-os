@@ -158,7 +158,7 @@ sudo nginx -t && sudo systemctl reload nginx
 server {
     listen 80;
     server_name chhl.ru;
-    client_max_body_size 1m;
+    client_max_body_size 6m;
 
     location / {
         proxy_pass http://127.0.0.1:8082;

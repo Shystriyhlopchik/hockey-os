@@ -4,7 +4,12 @@
     >{{ tournamentName() }}<span class="round">Тур {{ match().round }}</span>
   </div>
   <div class="match-date">
-    {{ date(match().startsAt) }} <span>· {{ time(match().startsAt) }} МСК</span>
+    @if (showSchedule()) {
+      {{ date(match().startsAt) }} <span>· {{ time(match().startsAt) }} МСК</span>
+    } @else {
+      Дата и время уточняются
+    }
+    <app-schedule-status [match]="match()" />
   </div>
   <div class="match-teams">
     <div>
@@ -21,6 +26,7 @@
     </div>
   </div>
   <div class="match-venue">
-    <span aria-hidden="true">⌖</span> {{ match().venue }}<span aria-hidden="true">↗</span>
+    <span aria-hidden="true">⌖</span> {{ showSchedule() ? match().venue : 'Площадка уточняется'
+    }}<span aria-hidden="true">↗</span>
   </div>
 </a>

@@ -8,6 +8,8 @@ import {
   changedScheduleRows,
   scheduleChanges,
   applyScheduleBulk,
+  scheduleRowPatch,
+  confirmSelectedScheduleRows,
 } from './schedule-editor.ts';
 
 const game = (id, round, startsAt, status = 'scheduled', stage = 'regular') => ({
@@ -19,6 +21,10 @@ const game = (id, round, startsAt, status = 'scheduled', stage = 'regular') => (
   status,
   venue: 'Арена',
   slotMinutes: 90,
+  homeTeamId: 1,
+  awayTeamId: 2,
+  scheduleConfirmed: false,
+  scheduleVersion: 0,
 });
 
 test('The editor uses Moscow time and keeps the original schedule for concurrency checks', () => {
@@ -35,11 +41,14 @@ test('The editor uses Moscow time and keeps the original schedule for concurrenc
       startsAt: '2026-11-14T12:00:00.000Z',
       venue: 'Арена',
       slotMinutes: 90,
+      scheduleConfirmed: false,
       expected: {
         round: 3,
         startsAt: '2026-11-14T09:00:00.000Z',
         venue: 'Арена',
         slotMinutes: 90,
+        scheduleConfirmed: false,
+        scheduleVersion: 0,
       },
     },
   ]);
@@ -99,6 +108,8 @@ test('Completed rows cannot enter the payload; clearing a date is explicit and m
   assert.throws(() => scheduleChanges(rows), /60 до 300/);
   rows[1].slotMinutes = 90;
   rows[1].venue = '';
+  assert.equal(scheduleChanges(rows)[0].venue, '');
+  rows[1].scheduleConfirmed = true;
   assert.throws(() => scheduleChanges(rows), /площадку/);
 });
 
@@ -199,4 +210,50 @@ test('Round choices remain in numerical order when dates no longer follow round 
     scheduleGroups(rows).map((group) => group.key),
     ['regular:3', 'regular:4', 'regular:15', 'semi:2', 'final:1'],
   );
+});
+
+test('Confirmation-only edits carry the original version and survive a round-only move', () => {
+  const rows = createScheduleRows([{ ...game(1, 2, '2026-11-14T09:00:00Z'), scheduleVersion: 7 }]);
+  rows[0].scheduleConfirmed = true;
+  const [change] = scheduleChanges(rows);
+  assert.equal(change.scheduleConfirmed, true);
+  assert.equal(change.expected.scheduleConfirmed, false);
+  assert.equal(change.expected.scheduleVersion, 7);
+  assert.deepEqual(scheduleRowPatch(rows[0], { round: 3 }), { round: 3 });
+  assert.deepEqual(scheduleRowPatch(rows[0], { venue: 'Другая арена' }), {
+    venue: 'Другая арена',
+    scheduleConfirmed: false,
+  });
+  assert.deepEqual(scheduleRowPatch(rows[0], { startsAt: rows[0].startsAt }), {
+    startsAt: rows[0].startsAt,
+  });
+  assert.equal(scheduleRowPatch(rows[0], { slotMinutes: 120 }).scheduleConfirmed, false);
+});
+test('Bulk confirmation affects only selected unplayed games and validates the whole selection first', () => {
+  const rows = createScheduleRows([
+    game(1, 1, '2026-11-14T09:00:00Z'),
+    game(2, 1, null),
+    game(3, 1, '2026-11-14T11:00:00Z', 'completed'),
+  ]);
+  assert.throws(() => confirmSelectedScheduleRows(rows, true), /выберите/);
+  rows.forEach((row) => (row.selected = true));
+  assert.throws(() => confirmSelectedScheduleRows(rows, true), /дата/);
+  assert.ok(rows.every((row) => !row.scheduleConfirmed));
+  rows[1].selected = false;
+  confirmSelectedScheduleRows(rows, true);
+  assert.deepEqual(
+    rows.map((row) => row.scheduleConfirmed),
+    [true, false, false],
+  );
+  confirmSelectedScheduleRows(rows, false);
+  assert.ok(rows.every((row) => !row.scheduleConfirmed));
+});
+test('Bulk appointment changes revoke confirmation without changing other rounds', () => {
+  const rows = createScheduleRows([
+    { ...game(1, 1, '2026-11-14T09:00:00Z'), scheduleConfirmed: true },
+    { ...game(2, 2, '2026-11-14T11:00:00Z'), scheduleConfirmed: true },
+  ]);
+  applyScheduleBulk(rows, 'regular:1', '2026-11-15', '');
+  assert.equal(rows[0].scheduleConfirmed, false);
+  assert.equal(rows[1].scheduleConfirmed, true);
 });

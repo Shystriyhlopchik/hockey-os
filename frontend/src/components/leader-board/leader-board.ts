@@ -1,3 +1,4 @@
+import { PlayerAvatar } from '../player-avatar/player-avatar';
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { PlayerStat, Team } from '../../core/models/league';
@@ -5,7 +6,7 @@ import { TeamBadge } from '../team-badge/team-badge';
 @Component({
   selector: 'app-leader-board',
   standalone: true,
-  imports: [RouterLink, TeamBadge],
+  imports: [RouterLink, TeamBadge, PlayerAvatar],
   templateUrl: './leader-board.html',
   styleUrl: './leader-board.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -29,12 +30,5 @@ export class LeaderBoard {
   protected readonly first = computed(() => this.leaders()[0]);
   protected team(id: number) {
     return this.teams().find((team) => team.id === id);
-  }
-  protected initials(name: string) {
-    return name
-      .split(' ')
-      .slice(0, 2)
-      .map((part) => part[0])
-      .join('');
   }
 }

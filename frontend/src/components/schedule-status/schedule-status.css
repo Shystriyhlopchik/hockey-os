@@ -1,0 +1,20 @@
+:host {
+  display: block;
+}
+.schedule-state,
+.schedule-changed {
+  display: block;
+  font:
+    400 11px Play,
+    sans-serif;
+  line-height: 1.5;
+}
+.schedule-state {
+  color: #e6bf7d;
+}
+.schedule-state.confirmed {
+  color: #90d5b2;
+}
+.schedule-changed {
+  color: #ff9bad;
+}

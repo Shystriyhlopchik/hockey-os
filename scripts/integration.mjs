@@ -66,9 +66,17 @@ try{
   await api('workspace/players','POST',{...identityInput,registerAfter:false},'admin',409);
   ok('Игрок без активных заявок остаётся в общем реестре и защищён от повторного создания');
 
-  await api('workspace/matches/10','PATCH',{startsAt:pub.matches.find(x=>x.id===9).startsAt,venue:'Новое Поколение',slotMinutes:90},'admin',409);ok('Пересечения интервалов арены не допускаются');
+  // Confirm the fixture schedule explicitly before checking hard booking conflicts.
+  for(const tournament of (await api('workspace')).tournaments){
+    const fixtures=(await api('workspace')).matches.filter(m=>m.tournamentId===tournament.id&&m.status==='scheduled');
+    const matches=fixtures.map(m=>({id:m.id,round:m.round,startsAt:m.startsAt,venue:m.venue,slotMinutes:m.slotMinutes,scheduleConfirmed:true,expected:{round:m.round,startsAt:m.startsAt,venue:m.venue,slotMinutes:m.slotMinutes,scheduleConfirmed:m.scheduleConfirmed,scheduleVersion:m.scheduleVersion}}));
+    await api('workspace/tournaments/'+tournament.id+'/schedule','PATCH',{matches},'admin');
+  }
+  pub.matches=(await api('workspace')).matches;
+  const collision=pub.matches.find(x=>x.id===10);
+  await api('workspace/matches/10','PATCH',{startsAt:pub.matches.find(x=>x.id===9).startsAt,venue:'Новое Поколение',slotMinutes:90,scheduleConfirmed:true,expected:{round:collision.round,startsAt:collision.startsAt,venue:collision.venue,slotMinutes:collision.slotMinutes,scheduleConfirmed:collision.scheduleConfirmed,scheduleVersion:collision.scheduleVersion}},'admin',409);ok('Пересечения интервалов арены не допускаются');
   const scheduled=pub.matches.filter(x=>x.tournamentId===1&&x.status==='scheduled');const first=scheduled[0],second=scheduled[1],other=scheduled[2];
-  const snapshot=match=>({round:match.round,startsAt:match.startsAt,venue:match.venue,slotMinutes:match.slotMinutes});
+  const snapshot=match=>({round:match.round,startsAt:match.startsAt,venue:match.venue,slotMinutes:match.slotMinutes,scheduleConfirmed:match.scheduleConfirmed,scheduleVersion:match.scheduleVersion});
   const edit=(match,fields={})=>({id:match.id,...snapshot(match),...fields,expected:snapshot(match)});
   const schedulePath='workspace/tournaments/1/schedule';
   const swap={matches:[edit(first,{startsAt:second.startsAt}),edit(second,{startsAt:first.startsAt})]};

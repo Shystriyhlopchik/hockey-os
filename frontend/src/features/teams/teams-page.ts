@@ -1,3 +1,4 @@
+import { PlayerAvatar } from '../../components/player-avatar/player-avatar';
 import { TeamBadge } from '../../components/team-badge/team-badge';
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -6,7 +7,7 @@ import { LEAGUE_STATE } from '../../core/state/league-state';
 @Component({
   selector: 'app-teams-page',
   standalone: true,
-  imports: [TeamBadge, FormsModule, RouterLink],
+  imports: [PlayerAvatar, TeamBadge, FormsModule, RouterLink],
   templateUrl: './teams-page.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

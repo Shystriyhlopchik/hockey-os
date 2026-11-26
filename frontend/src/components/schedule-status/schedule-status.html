@@ -1,0 +1,6 @@
+@if (match().status === 'scheduled') {
+  <span class="schedule-state" [class.confirmed]="match().scheduleConfirmed">{{ label() }}</span>
+  @if (match().scheduleChangedAt && match().scheduleConfirmed) {
+    <span class="schedule-changed">Расписание изменено</span>
+  }
+}

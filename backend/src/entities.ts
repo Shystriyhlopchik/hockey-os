@@ -16,10 +16,12 @@ export class Base { @PrimaryGeneratedColumn() id:number; @CreateDateColumn({type
   @Column() userId:number; @Column() tournamentId:number;
 }
 @Entity('teams') export class Team extends Base {
+  @Column({type:'varchar',nullable:true}) logoUrl:string|null;
   @Column() name:string; @Column() city:string; @Column() abbreviation:string;
   @Column({default:'#17475b'}) color:string; @Column({type:'text',default:''}) description:string;
 }
 @Entity('players') export class Player extends Base {
+  @Column({type:'varchar',nullable:true}) photoUrl:string|null;
   @Column() firstName:string; @Column() lastName:string; @Column({default:''}) middleName:string;
   @Column({type:'date'}) birthDate:string; @Column({type:'varchar'}) position:Position;
   @Column({type:'varchar'}) qualification:Qualification;
@@ -48,6 +50,8 @@ export class Base { @PrimaryGeneratedColumn() id:number; @CreateDateColumn({type
 @Entity('matches') export class Match extends Base {
   @Column() tournamentId:number; @Column({type:'int',nullable:true}) homeTeamId:number|null; @Column({type:'int',nullable:true}) awayTeamId:number|null;
   @Column({default:'regular'}) stage:string; @Column({default:1}) round:number;
+  @Column({default:false}) scheduleConfirmed:boolean; @Column({default:0}) scheduleVersion:number;
+  @Column({type:'timestamptz',nullable:true}) scheduleChangedAt:Date|null;
   @Column({type:'timestamptz',nullable:true}) startsAt:Date|null; @Column({default:90}) slotMinutes:number;
   @Column({default:'Новое Поколение'}) venue:string; @Column({default:'scheduled'}) status:string;
   @Column({type:'int',nullable:true}) homeScore:number|null; @Column({type:'int',nullable:true}) awayScore:number|null;

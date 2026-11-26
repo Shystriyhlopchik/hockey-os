@@ -32,9 +32,11 @@
   <section class="content-section">
     <a class="back-link" routerLink="/players">← Статистика игроков</a>
     <div class="profile-hero">
-      <span class="player-portrait"
-        >{{ selectedPlayer.lastName.slice(0, 1) }}{{ selectedPlayer.firstName.slice(0, 1) }}</span
-      >
+      <app-player-avatar
+        [name]="selectedPlayer.name"
+        [photoUrl]="selectedPlayer.photoUrl"
+        size="lg"
+      />
       <div>
         <span class="eyebrow">{{ vm.positions[selectedPlayer.position] }}</span>
         <h1>{{ selectedPlayer.name }}</h1>
@@ -170,8 +172,7 @@
                 <td>{{ i + 1 }}</td>
                 <td>
                   <a [routerLink]="'/players/' + p.playerId"
-                    ><span class="mini-avatar">{{ p.name.slice(0, 1) }}</span
-                    ><span
+                    ><app-player-avatar [name]="p.name" [photoUrl]="p.photoUrl" size="sm" /><span
                       ><b>{{ p.name }}</b
                       ><small>{{ vm.positions[p.position] }}</small></span
                     ></a

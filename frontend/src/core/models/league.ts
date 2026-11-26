@@ -1,4 +1,5 @@
 export interface Team {
+  logoUrl?: string | null;
   id: number;
   name: string;
   abbreviation: string;
@@ -12,6 +13,9 @@ export interface LeagueMatch {
   homeTeamId: number | null;
   awayTeamId: number | null;
   startsAt: string | null;
+  scheduleConfirmed: boolean;
+  scheduleVersion: number;
+  scheduleChangedAt: string | null;
   status: string;
   homeScore: number | null;
   awayScore: number | null;
@@ -24,6 +28,7 @@ export interface LeagueMatch {
   resolution: string | null;
 }
 export interface Standing {
+  logoUrl?: string | null;
   teamId: number;
   position: number;
   name: string;
@@ -41,6 +46,7 @@ export interface Standing {
   tieNote: string;
 }
 export interface PlayerStat {
+  photoUrl?: string | null;
   playerId: number;
   teamId: number;
   tournamentId: number;
@@ -112,6 +118,7 @@ export interface LeagueSnapshot {
   }[];
   teams: Team[];
   players: {
+    photoUrl?: string | null;
     id: number;
     name: string;
     firstName: string;
